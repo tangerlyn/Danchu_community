@@ -2,8 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## 세션 시작 시 필수 확인
+- `tasks/lessons.md`가 존재하면 반드시 먼저 읽고 시작할 것
+- `tasks/todo.md`가 존재하면 현재 진행 상황을 파악할 것
 
+## Commands
 ```bash
 # Install dependencies
 flutter pub get
@@ -30,9 +33,9 @@ dart run flutter_native_splash:create
 
 ## Architecture
 
-**State management**: GetX (`get` package). Controllers extend `GetxController` with reactive `.obs` variables. `Get.put()`/`Get.find()` for DI, `Get.offAll()` for navigation.
+State management: GetX (`get` package). Controllers extend `GetxController` with reactive `.obs` variables. `Get.put()`/`Get.find()` for DI, `Get.offAll()` for navigation.
 
-**Layer structure** inside `lib/`:
+Layer structure inside `lib/`:
 
 | Directory | Role |
 |---|---|
@@ -48,19 +51,74 @@ dart run flutter_native_splash:create
 | `utils/` | Shared utilities and mock services |
 | `widgets/` | Shared widgets (`NetworkBanner`, `OverlayNotification`, `PawLoadingIndicator`) |
 
-**Navigation flow** (`main.dart` → `MainScreen`):
+Navigation flow (`main.dart` → `MainScreen`):
 - App checks `SharedPreferences` for `is_profile_completed` and `has_seen_onboarding`, and `FirebaseAuth` for login state
 - Routes: `LoginPage` → (Kakao/Naver OAuth) → `ProfilePage(isOnboarding: true)` → `MainScreen`
 - `MainScreen` is a bottom-nav shell with 4 tabs: Home (map), History, Community, Profile
 
-**Backend**: Firebase (Auth, Firestore, Storage, Messaging, Analytics) + Naver Map SDK + Naver/Kakao OAuth.
+Backend: Firebase (Auth, Firestore, Storage, Messaging, Analytics) + Naver Map SDK + Naver/Kakao OAuth.
 
-**Auth pattern**: Kakao/Naver social login is bridged to Firebase Auth via email+password (email = `kakao_{id}@pawprint.login` or real Naver email; password = SHA-256 of `{id} + "PAWPRINT_SECRET_SALT_2026"` truncated to 20 chars).
+Auth pattern: Kakao/Naver social login is bridged to Firebase Auth via email+password (email = `kakao_{id}@pawprint.login` or real Naver email; password = SHA-256 of `{id} + "PAWPRINT_SECRET_SALT_2026"` truncated to 20 chars).
 
-**Local DB**: SQLite via `sqflite` in `features/history/database_helper.dart` — stores walk records locally, cleared on logout.
+Local DB: SQLite via `sqflite` in `features/history/database_helper.dart` — stores walk records locally, cleared on logout.
 
-**Map (Home) feature**: `HomeController` (`presentation/home/controllers/`) manages Naver Map markers, place search (via `SearchRepository` → `NaverApiProvider`), category filtering, and bookmark sync from Firestore in real time.
+Map (Home) feature: `HomeController` (`presentation/home/controllers/`) manages Naver Map markers, place search (via `SearchRepository` → `NaverApiProvider`), category filtering, and bookmark sync from Firestore in real time.
 
-**Walk tracking**: `features/tracking/tracking_page.dart` and `summary_page.dart` — GPS tracking using `geolocator`, route drawn on Naver Map, saved to local SQLite and Firestore.
+Walk tracking: `features/tracking/tracking_page.dart` and `summary_page.dart` — GPS tracking using `geolocator`, route drawn on Naver Map, saved to local SQLite and Firestore.
 
-**Community**: `features/community/` — posts, comments, meetup chat (`cloud_firestore` streams), location pick, missing pet reports. `CommunityController` is explicitly deleted before `Get.deleteAll()` on logout to avoid stream leaks.
+Community: `features/community/` — posts, comments, meetup chat (`cloud_firestore` streams), location pick, missing pet reports. `CommunityController` is explicitly deleted before `Get.deleteAll()` on logout to avoid stream leaks.
+
+---
+
+## 워크플로우 오케스트레이션
+
+### 1. 기본 계획 모드
+- 사소하지 않은 모든 작업(3단계 이상 또는 아키텍처 결정이 필요한 경우)에 대해 계획 모드로 진입하세요.
+- 문제가 발생하면 즉시 **멈추고** 다시 계획을 세우세요 - 무리하게 진행하지 마세요.
+- 단순히 빌드할 때뿐만 아니라 검증 단계에서도 계획 모드를 사용하세요.
+- 모호함을 줄이기 위해 사전에 상세한 사양을 작성하세요.
+
+### 2. 서브 에이전트 전략
+- 메인 컨텍스트 윈도우를 깨끗하게 유지하기 위해 서브 에이전트를 자유롭게 사용하세요.
+- 조사, 탐색 및 병렬 분석 작업을 서브 에이전트에게 위임하세요.
+- 복잡한 문제의 경우 서브 에이전트를 통해 더 많은 연산 자원을 투입하세요.
+- 집중적인 실행을 위해 서브 에이전트당 하나의 작업을 할당하세요.
+
+### 3. 자기 개선 루프
+- 사용자로부터 수정을 받은 후에는 **반드시** `tasks/lessons.md`에 해당 패턴을 업데이트하세요.
+- 같은 실수를 반복하지 않도록 자신을 위한 규칙을 작성하세요.
+- 관련 프로젝트의 세션 시작 시 교훈들을 검토하세요.
+
+### 4. 완료 전 검증
+- 작동함을 증명하지 않고 작업을 완료로 표시하지 마세요.
+- 스스로에게 물어보세요: "스태프 엔지니어가 이것을 승인할까?"
+- 테스트를 실행하고, 로그를 확인하고, 정확성을 입증하세요.
+
+### 5. 우아함 추구 (균형 유지)
+- 사소하지 않은 변경 사항의 경우: 잠시 멈추고 "더 우아한 방법이 없을까?"라고 자문하세요.
+- 간단하고 명백한 수정에는 이 과정을 건너뛰세요 - 과도한 엔지니어링은 피하세요.
+- 결과물을 제시하기 전에 자신의 작업물에 대해 비판적으로 검토하세요.
+
+### 6. 자율적인 버그 수정
+- 버그 리포트를 받으면: 그냥 수정하세요. 일일이 도움을 요청하지 마세요.
+- 로그, 오류, 실패한 테스트를 지적하고 - 그 다음 해결하세요.
+- 사용자에게 컨텍스트 전환을 요구하지 마세요.
+
+---
+
+## 작업 관리
+
+1. **우선 계획**: `tasks/todo.md`에 체크 가능한 항목으로 계획을 작성하세요.
+2. **계획 검증**: 구현을 시작하기 전에 확인을 받으세요.
+3. **진행 상황 추적**: 진행하면서 완료된 항목을 표시하세요.
+4. **변경 사항 설명**: 각 단계에서 높은 수준의 요약을 제공하세요.
+5. **결과 문서화**: `tasks/todo.md`에 검토 섹션을 추가하세요.
+6. **교훈 기록**: 수정 사항이 있으면 `tasks/lessons.md`를 업데이트하세요.
+
+---
+
+## 핵심 원칙
+
+- **단순함 우선**: 모든 변경을 가능한 한 단순하게 만드세요. 코드 영향을 최소화하세요.
+- **나태함 금지**: 근본 원인을 찾으세요. 임시방편은 안 됩니다. 시니어 개발자 수준의 기준을 지키세요.
+- **최소한의 영향**: 변경 사항은 필요한 부분만 건드려야 합니다. 버그 유입을 피하세요.
