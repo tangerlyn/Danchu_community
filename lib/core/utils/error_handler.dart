@@ -8,7 +8,7 @@ class AppErrorHandler {
 
   static void showError(String message) {
     Get.snackbar(
-      '오류',
+      '잠깐!',
       message,
       snackPosition: SnackPosition.BOTTOM,
       backgroundColor: Colors.redAccent.withOpacity(0.85),

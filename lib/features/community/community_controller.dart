@@ -160,7 +160,8 @@ class CommunityController extends GetxController {
           icon: const Icon(Icons.location_on, color: Colors.white, size: 20),
         );
       } catch (e) {
-        Get.snackbar('에러 상세', e.toString());
+        debugPrint('⚠️ Error toggling near me filter: $e');
+        Get.snackbar('잠깐!', '위치 정보를 가져오는 중 문제가 발생했어요 🐾');
       }
     }
   }

@@ -25,7 +25,8 @@ class BookmarkedPlacesPage extends StatelessWidget {
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(child: Text('오류가 발생했습니다: ${snapshot.error}'));
+                debugPrint('⚠️ Error loading bookmarked places: ${snapshot.error}');
+                return const Center(child: Text('정보를 불러오지 못했어요 🐾'));
               }
 
               if (snapshot.connectionState == ConnectionState.waiting) {

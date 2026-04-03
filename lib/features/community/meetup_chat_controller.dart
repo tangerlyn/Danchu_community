@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../data/repositories/meetup_chat_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../core/utils/custom_center_toast.dart';
+import '../../core/app_colors.dart';
 import '../../services/fcm_service.dart';
 import 'community_controller.dart';
 
@@ -15,6 +18,7 @@ class MeetupChatController extends GetxController {
   final MeetupChatRepository _chatRepository = MeetupChatRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ImagePicker _picker = ImagePicker();
 
   var isLeaving = false.obs;
 
@@ -33,6 +37,7 @@ class MeetupChatController extends GetxController {
   final scrollController = ScrollController();
   final isChatMuted = false.obs;
   final chatRoomName = ''.obs;
+  final chatRoomImageUrl = ''.obs;
   final participantCount = 0.obs;
 
   String? _currentUid;
@@ -125,11 +130,14 @@ class MeetupChatController extends GetxController {
         final data = doc.data() as Map<String, dynamic>?;
         final name = data?['chatRoomName'] as String?;
         chatRoomName.value = name ?? postTitle;
+        chatRoomImageUrl.value = data?['chatRoomImageUrl'] as String? ?? '';
       } else {
         chatRoomName.value = postTitle;
+        chatRoomImageUrl.value = '';
       }
     } catch (e) {
       chatRoomName.value = postTitle;
+      chatRoomImageUrl.value = '';
     }
   }
 
@@ -173,8 +181,9 @@ class MeetupChatController extends GetxController {
       messageTextController.clear();
       messageText.value = '';
     } catch (e) {
+      debugPrint('⚠️ Error sending message: $e');
       failedMessages.insert(0, message);
-      Get.snackbar('오류', '메시지 전송에 실패했습니다.');
+      Get.snackbar('잠깐!', '메시지 전송에 실패했어요 🐾');
     } finally {
       isSubmitting.value = false;
     }
@@ -186,7 +195,8 @@ class MeetupChatController extends GetxController {
       await _chatRepository.sendMessage(postId, message);
       failedMessages.remove(message);
     } catch (e) {
-      Get.snackbar('오류', '메시지 재전송에 실패했습니다.');
+      debugPrint('⚠️ Error resending message: $e');
+      Get.snackbar('잠깐!', '메시지 전송에 실패했어요 🐾');
     } finally {
       isSubmitting.value = false;
     }
@@ -195,23 +205,27 @@ class MeetupChatController extends GetxController {
   Future<void> pickAndSendImage(ImageSource source) async {
     if (_currentUid == null) return;
     try {
-      final picker = ImagePicker();
-      
       if (source == ImageSource.gallery) {
-        final pickedFiles = await picker.pickMultiImage(imageQuality: 70, limit: 5);
+        final pickedFiles = await _picker.pickMultiImage(imageQuality: 70, limit: 5);
         if (pickedFiles.isEmpty) return;
         if (pickedFiles.length > 5) {
           CustomCenterToast.show('최대 5장까지 선택 가능합니다.');
           return;
         }
-        
+
         isSubmitting.value = true;
-        for (final pickedFile in pickedFiles) {
-          await _processAndSendSingleImage(File(pickedFile.path));
+
+        if (pickedFiles.length == 1) {
+          // 1장이면 기존 방식
+          await _processAndSendSingleImage(File(pickedFiles.first.path));
+        } else {
+          // 여러 장이면 한 메시지로 묶어서 전송
+          await _processAndSendMultipleImages(pickedFiles.map((f) => File(f.path)).toList());
         }
+
         isSubmitting.value = false;
       } else {
-        final pickedFile = await picker.pickImage(source: source, imageQuality: 70);
+        final pickedFile = await _picker.pickImage(source: source, imageQuality: 70);
         if (pickedFile == null) return;
         
         isSubmitting.value = true;
@@ -219,7 +233,8 @@ class MeetupChatController extends GetxController {
         isSubmitting.value = false;
       }
     } catch (e) {
-      Get.snackbar('오류', '이미지를 가져오지 못했습니다.');
+      debugPrint('⚠️ Error picking images: $e');
+      Get.snackbar('잠깐!', '사진을 불러오는 중 문제가 발생했어요 🐾');
       isSubmitting.value = false;
     }
   }
@@ -245,11 +260,46 @@ class MeetupChatController extends GetxController {
         // Notify Chat Participants
         _notifyChatParticipants('사진을 보냈습니다.');
       } catch (e) {
+        debugPrint('⚠️ Error sending image message: $e');
         failedMessages.insert(0, message);
-        Get.snackbar('오류', '이미지 전송에 실패했습니다.');
+        Get.snackbar('잠깐!', '사진 전송에 실패했어요 🐾');
       }
     } catch (e) {
-      Get.snackbar('오류', '이미지 업로드에 실패했습니다.');
+      debugPrint('⚠️ Error uploading image: $e');
+      Get.snackbar('잠깐!', '사진 업로드에 실패했어요 🐾');
+    }
+  }
+
+  Future<void> _processAndSendMultipleImages(List<File> files) async {
+    try {
+      final List<String> uploadedUrls = [];
+      for (final file in files) {
+        final imageUrl = await _chatRepository.uploadImage(postId, _currentUid!, file);
+        uploadedUrls.add(imageUrl);
+      }
+
+      final msgId = _chatRepository.getNewMessageId(postId);
+      final message = ChatMessage(
+        id: msgId,
+        senderUid: _currentUid!,
+        senderNickname: _currentNickname ?? '알 수 없음',
+        message: '사진을 보냈습니다.',
+        imageUrls: uploadedUrls,
+        createdAt: DateTime.now(),
+        readBy: [_currentUid!],
+      );
+
+      try {
+        await _chatRepository.sendMessage(postId, message);
+        _notifyChatParticipants('사진을 보냈습니다.');
+      } catch (e) {
+        debugPrint('⚠️ Error sending multi-image message: $e');
+        failedMessages.insert(0, message);
+        Get.snackbar('잠깐!', '사진 전송에 실패했어요 🐾');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error uploading multi-images: $e');
+      Get.snackbar('잠깐!', '사진 업로드에 실패했어요 🐾');
     }
   }
 
@@ -259,7 +309,8 @@ class MeetupChatController extends GetxController {
       await _chatRepository.toggleChatMuted(postId, _currentUid!);
       isChatMuted.value = !isChatMuted.value;
     } catch (e) {
-      Get.snackbar('오류', '알림 설정 변경에 실패했습니다.');
+      debugPrint('⚠️ Error toggling chat mute: $e');
+      Get.snackbar('잠깐!', '설정 변경에 실패했어요 🐾');
     }
   }
 
@@ -273,7 +324,8 @@ class MeetupChatController extends GetxController {
       });
       chatRoomName.value = trimmed;
     } catch (e) {
-      Get.snackbar('오류', '채팅방 이름 변경에 실패했습니다.');
+      debugPrint('⚠️ Error renaming chat room: $e');
+      Get.snackbar('잠깐!', '이름 변경에 실패했어요 🐾');
     }
   }
 
@@ -330,8 +382,8 @@ class MeetupChatController extends GetxController {
       }
     } catch (e) {
       isLeaving.value = false;
-      debugPrint('Error leaving chat room: $e');
-      Get.snackbar('오류', '채팅방 나가기에 실패했습니다.');
+      debugPrint('⚠️ Error leaving chat room: $e');
+      Get.snackbar('잠깐!', '채팅방 나가기에 실패했어요 🐾');
     }
   }
 
@@ -386,6 +438,63 @@ class MeetupChatController extends GetxController {
     messageTextController.dispose();
     scrollController.dispose();
     super.onClose();
+  }
+
+  Future<void> changeChatRoomImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (pickedFile == null) return;
+
+    final croppedFile = await _cropImage(File(pickedFile.path));
+    if (croppedFile == null) return;
+
+    isSubmitting.value = true;
+    try {
+      final String fileName = '${postId}.jpg';
+      final Reference ref = FirebaseStorage.instance
+          .ref()
+          .child('chat_room_images')
+          .child(fileName);
+      
+      await ref.putFile(File(croppedFile.path));
+      final String downloadUrl = await ref.getDownloadURL();
+
+      await _firestore.collection('community_posts').doc(postId).update({
+        'chatRoomImageUrl': downloadUrl,
+      });
+
+      chatRoomImageUrl.value = downloadUrl;
+      Get.snackbar('성공', '채팅방 대표 사진이 변경되었습니다. 🐾');
+    } catch (e) {
+      debugPrint('⚠️ Error updating chat room image: $e');
+      Get.snackbar('잠깐!', '사진 변경에 실패했습니다. 다시 시도해주세요 🐾');
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<CroppedFile?> _cropImage(File imageFile) async {
+    return await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: '이미지 자르기',
+          toolbarColor: AppColors.deepBrown,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: '이미지 자르기',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          cancelButtonTitle: '취소',
+          doneButtonTitle: '완료',
+          rotateButtonsHidden: true,
+          resetButtonHidden: true,
+        ),
+      ],
+    );
   }
 
   Future<void> _notifyChatParticipants(String content) async {

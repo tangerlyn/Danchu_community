@@ -222,7 +222,8 @@ class PostDetailController extends GetxController {
       Get.back(); // close dialog
       Get.back(); // return to list screen
     } catch (e) {
-      Get.snackbar('오류', '삭제에 실패했습니다: $e');
+      debugPrint('⚠️ Error deleting post: $e');
+      Get.snackbar('잠깐!', '글 삭제에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isDeleting.value = false;
     }
@@ -252,7 +253,10 @@ class PostDetailController extends GetxController {
                 await _repository.reportPost(post.id, uid);
                 Get.snackbar('알림', '신고가 접수되었습니다.');
               } catch (e) {
-                Get.snackbar('오류', '신고 처리에 실패했습니다: ${e.toString().replaceAll('Exception: ', '')}');
+                debugPrint('⚠️ Error reporting post: $e');
+                if (!e.toString().contains('already reported')) {
+                  Get.snackbar('잠깐!', '신고 접수에 실패했어요. 다시 시도해주세요 🐾');
+                }
               }
             },
             child: const Text('신고', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
@@ -289,7 +293,7 @@ class PostDetailController extends GetxController {
         isLiked.value = true;
         likeCount.value++;
       }
-      Get.snackbar('오류', '좋아요 처리에 실패했습니다: $e');
+      debugPrint('⚠️ Error toggling like: $e');
     }
   }
 
@@ -345,7 +349,12 @@ class PostDetailController extends GetxController {
         meetupParticipants.remove(uid);
         currentParticipantCount.value--;
       }
-      Get.snackbar('오류', e.toString().contains('마감') ? '모임 인원이 마감되었습니다.' : '처리 중 오류가 발생했습니다.');
+      debugPrint('⚠️ Error toggling meetup participation: $e');
+      if (e.toString().contains('마감')) {
+        Get.snackbar('알림', '모임 인원이 마감되었습니다.');
+      } else {
+        Get.snackbar('잠깐!', '처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요 🐾');
+      }
     }
   }
 
@@ -464,7 +473,8 @@ class PostDetailController extends GetxController {
       commentText.value = '';
       commentFocusNode.unfocus();
     } catch (e) {
-      Get.snackbar('오류', '등록 중 오류가 발생했습니다: $e');
+      debugPrint('⚠️ Error submitting comment: $e');
+      Get.snackbar('잠깐!', '댓글 등록에 실패했어요 🐾');
     } finally {
       isSubmittingComment.value = false;
     }
@@ -498,7 +508,8 @@ class PostDetailController extends GetxController {
 
       cancelEditingComment();
     } catch (e) {
-      Get.snackbar('오류', '댓글 수정 중 오류가 발생했습니다: $e');
+      debugPrint('⚠️ Error updating comment: $e');
+      Get.snackbar('잠깐!', '댓글 수정에 실패했어요 🐾');
     } finally {
       isSubmittingInlineEdit.value = false;
     }
@@ -521,7 +532,8 @@ class PostDetailController extends GetxController {
               try {
                 await _repository.deleteComment(post.id, commentId);
               } catch (e) {
-                Get.snackbar('오류', '댓글 삭제에 실패했습니다: $e');
+                debugPrint('⚠️ Error deleting comment: $e');
+                Get.snackbar('잠깐!', '댓글 삭제에 실패했어요 🐾');
               }
             },
             child: const Text('삭제', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
@@ -548,7 +560,8 @@ class PostDetailController extends GetxController {
               try {
                 await _repository.deleteReply(post.id, commentId, replyId);
               } catch (e) {
-                Get.snackbar('오류', '답글 삭제에 실패했습니다: $e');
+                debugPrint('⚠️ Error deleting reply: $e');
+                Get.snackbar('잠깐!', '답글 삭제에 실패했어요 🐾');
               }
             },
             child: const Text('삭제', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
@@ -582,7 +595,10 @@ class PostDetailController extends GetxController {
                 await _repository.reportComment(post.id, commentId, uid);
                 Get.snackbar('알림', '신고가 접수되었습니다.');
               } catch (e) {
-                Get.snackbar('오류', '신고 처리에 실패했습니다: ${e.toString().replaceAll('Exception: ', '')}');
+                debugPrint('⚠️ Error reporting comment: $e');
+                if (!e.toString().contains('already reported')) {
+                  Get.snackbar('잠깐!', '신고 접수에 실패했어요. 다시 시도해주세요 🐾');
+                }
               }
             },
             child: const Text('신고', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),

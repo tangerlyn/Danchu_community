@@ -25,8 +25,7 @@ class PostEditController extends GetxController with PetReportMixin {
   // selectedPetGender, isNeutered, incidentLocations, selectedIncidentDate
 
   final ImagePicker _picker = ImagePicker();
-  var existingImageUrls = <String>[].obs; // 기존 이미지 URL
-  var newImages = <File>[].obs; // 새로 추가한 이미지
+  var combinedImages = <dynamic>[].obs; // Can be String (URL) or File (local)
   var isSubmitting = false.obs;
 
   PostEditController({required this.post});
@@ -35,7 +34,7 @@ class PostEditController extends GetxController with PetReportMixin {
   void onInit() {
     super.onInit();
     titleController.text = post.title;
-    existingImageUrls.assignAll(post.imageUrls);
+    combinedImages.assignAll(post.imageUrls);
     contentController.text = post.content;
 
     // Initialize pet info using mixin helper
@@ -102,7 +101,7 @@ class PostEditController extends GetxController with PetReportMixin {
   }
 
   Future<void> pickImages() async {
-    final remaining = 5 - existingImageUrls.length - newImages.length;
+    final remaining = 5 - combinedImages.length;
     if (remaining <= 0) {
       Get.snackbar('알림', '사진은 최대 5개까지 첨부할 수 있습니다.');
       return;
@@ -110,22 +109,27 @@ class PostEditController extends GetxController with PetReportMixin {
     try {
       final List<XFile> images = await _picker.pickMultiImage(limit: remaining);
       if (images.isNotEmpty) {
-        newImages.addAll(images.map((x) => File(x.path)));
+        combinedImages.addAll(images.map((x) => File(x.path)));
       }
     } catch (e) {
-      Get.snackbar('오류', '이미지를 불러오는 중 문제가 발생했습니다.');
+      debugPrint('⚠️ Error picking images: $e');
+      Get.snackbar('잠깐!', '사진을 불러오는 중 문제가 발생했어요. 다시 시도해주세요 🐾');
     }
   }
 
-  void removeExistingImage(int index) {
-    existingImageUrls.removeAt(index);
+  void reorderImages(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final dynamic image = combinedImages.removeAt(oldIndex);
+    combinedImages.insert(newIndex, image);
   }
 
-  void removeNewImage(int index) {
-    newImages.removeAt(index);
+  void removeImage(int index) {
+    combinedImages.removeAt(index);
   }
 
-  int get totalImageCount => existingImageUrls.length + newImages.length;
+  int get totalImageCount => combinedImages.length;
 
   Future<void> submitEdit() async {
     final title = titleController.text.trim();
@@ -138,25 +142,28 @@ class PostEditController extends GetxController with PetReportMixin {
 
     isSubmitting.value = true;
     try {
-      // 새 이미지 업로드
-      final List<String> newUploadedUrls = [];
-      for (final imageFile in newImages) {
-        try {
-          final fileName = '${DateTime.now().millisecondsSinceEpoch}_${post.authorUid}.jpg';
-          final ref = FirebaseStorage.instance
-              .ref()
-              .child('community_images')
-              .child(fileName);
-          await ref.putFile(imageFile);
-          final url = await ref.getDownloadURL();
-          newUploadedUrls.add(url);
-        } catch (e) {
-          debugPrint('⚠️ Image upload failed: $e');
+      final List<String> finalImageUrls = [];
+      
+      for (final item in combinedImages) {
+        if (item is String) {
+          // Keep existing URL
+          finalImageUrls.add(item);
+        } else if (item is File) {
+          // Upload new file
+          try {
+            final fileName = '${DateTime.now().millisecondsSinceEpoch}_${post.authorUid}_${combinedImages.indexOf(item)}.jpg';
+            final ref = FirebaseStorage.instance
+                .ref()
+                .child('community_images')
+                .child(fileName);
+            await ref.putFile(item);
+            final url = await ref.getDownloadURL();
+            finalImageUrls.add(url);
+          } catch (e) {
+            debugPrint('⚠️ Image upload failed: $e');
+          }
         }
       }
-
-      // 최종 이미지 URL 목록 (기존 유지된 것 + 새로 업로드된 것)
-      final finalImageUrls = [...existingImageUrls, ...newUploadedUrls];
 
       Map<String, dynamic>? petInfo;
       if (['실종', '임시보호'].contains(post.subCategoryTag)) {
@@ -193,7 +200,8 @@ class PostEditController extends GetxController with PetReportMixin {
       
       Get.back(result: updatedPost); 
     } catch (e) {
-      Get.snackbar('오류', '게시글 수정 중 오류가 발생했습니다: $e');
+      debugPrint('⚠️ Error editing post: $e');
+      Get.snackbar('잠깐!', '글 수정에 실패했어요. 잠시 후 다시 시도해주세요 🐾');
     } finally {
       isSubmitting.value = false;
     }

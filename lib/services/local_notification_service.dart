@@ -88,6 +88,57 @@ class LocalNotificationService {
     print('🚫 [LocalNotificationService] Cancelled notification #$id');
   }
 
+  // 생일 알림 스케줄링 (매년 반복)
+  static Future<void> scheduleBirthdayNotification({
+    required String dogId,
+    required String dogName,
+    required int birthMonth,
+    required int birthDay,
+  }) async {
+    final now = DateTime.now();
+    
+    // 올해 생일
+    DateTime birthday = DateTime(now.year, birthMonth, birthDay, 7, 0); // 오전 7시
+    
+    // 이미 지났으면 내년 생일로
+    if (birthday.isBefore(now)) {
+      birthday = DateTime(now.year + 1, birthMonth, birthDay, 9, 0);
+    }
+
+    final id = 'birthday_$dogId'.hashCode.abs();
+
+    await _plugin.zonedSchedule(
+      id,
+      '🎂 생일 축하해요!',
+      '오늘은 $dogName의 생일이에요! 축하해주세요 🐾',
+      tz.TZDateTime.from(birthday, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'birthday_channel',
+          '생일 알림',
+          channelDescription: '반려견 생일 알림',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime, // ← 매년 반복
+    );
+    debugPrint('🎂 [LocalNotificationService] Birthday notification scheduled for $dogName on $birthMonth/$birthDay');
+  }
+
+  // 생일 알림 취소
+  static Future<void> cancelBirthdayNotification(String dogId) async {
+    final id = 'birthday_$dogId'.hashCode.abs();
+    await _plugin.cancel(id);
+    debugPrint('🚫 [LocalNotificationService] Birthday notification cancelled for dogId: $dogId');
+  }
+
   // 알림 ID 생성 (제목 + 날짜 조합)
   static int generateId(String title, DateTime date) {
     return '${title}_${date.toIso8601String()}'.hashCode.abs();

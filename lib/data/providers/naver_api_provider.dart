@@ -113,52 +113,50 @@ class NaverApiProvider {
   }
 
   /// Single API call with sort:sim (accuracy). Naver API hard limit: 5 results.
+  /// MODIFIED: Loops through multiple pages to fetch up to [maxResults].
   Future<List<PlaceModel>> searchSuggestions(
     String query, {
-    int maxResults = 5,
+    int maxResults = 20, // increased to 20
     double? lat,
     double? lon,
   }) async {
     if (query.trim().isEmpty) return [];
 
-    final queryParams = {
-      'query': query,
-      'display': maxResults.toString(),
-      'start': '1',
-      'sort': 'sim',  // Accuracy/similarity sort for suggestions
-    };
+    List<PlaceModel> allResults = [];
+    final seenTitles = <String>{};
 
-    if (lat != null && lon != null) {
-      queryParams['lat'] = lat.toString();
-      queryParams['lng'] = lon.toString();
-    }
+    // Up to 4 pages (5 items * 4 = 20 items)
+    for (int i = 0; i < 4; i++) {
+      int start = 1 + (i * 5);
 
-    final uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);
-    debugPrint('🔍 Suggestion API: $uri');
+      final pageResults = await _fetchPage(
+        query,
+        start: start,
+        display: 5,
+        lat: lat,
+        lon: lon,
+      );
 
-    try {
-      final response = await http.get(uri, headers: {
-        'X-Naver-Client-Id': _clientId,
-        'X-Naver-Client-Secret': _clientSecret,
-      });
+      if (pageResults.isEmpty) break;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final total = data['total'] as int? ?? 0;
-        final items = data['items'] as List<dynamic>? ?? [];
-
-        final results = items
-            .map((item) => PlaceModel.fromJson(item as Map<String, dynamic>))
-            .where((p) => p.latitude != 0 && p.longitude != 0)
-            .toList();
-
-        debugPrint('🔍 Suggestions: ${results.length} items (total available: $total)');
-        return results;
+      bool foundDuplicate = false;
+      for (var place in pageResults) {
+        final signature = '${place.title}_${place.roadAddress}';
+        if (seenTitles.contains(signature)) {
+          foundDuplicate = true;
+          break;
+        }
+        seenTitles.add(signature);
+        allResults.add(place);
       }
-      return [];
-    } catch (e) {
-      debugPrint('❌ Suggestion API error: $e');
-      return [];
+
+      if (foundDuplicate) break;
+      if (allResults.length >= maxResults) break;
+
+      await Future.delayed(const Duration(milliseconds: 50));
     }
+
+    debugPrint('🔍 Suggestions: ${allResults.length} items');
+    return allResults;
   }
 }

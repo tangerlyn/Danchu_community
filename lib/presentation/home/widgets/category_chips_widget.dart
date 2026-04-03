@@ -30,7 +30,7 @@ class CategoryChipsWidget extends GetView<HomeController> {
                 child: ChoiceChip(
                   label: const Text('관심장소'),
                   selected: false,
-                  backgroundColor: AppColors.sand.withOpacity(0.3),
+                  backgroundColor: AppColors.white,
                   labelStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -55,7 +55,7 @@ class CategoryChipsWidget extends GetView<HomeController> {
                 label: Text(cat),
                 selected: isSelected,
                 selectedColor: AppColors.deepBrown,
-                backgroundColor: AppColors.sand.withOpacity(0.3),
+                backgroundColor: AppColors.white,
                 labelStyle: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

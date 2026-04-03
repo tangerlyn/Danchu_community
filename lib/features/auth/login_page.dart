@@ -31,7 +31,7 @@ class LoginPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Pawprint',
+                '단추모임',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 32,

@@ -25,11 +25,11 @@ class _InquiryWritePageState extends State<InquiryWritePage> {
 
   Future<void> _submit() async {
     if (_titleController.text.trim().isEmpty) {
-      Get.snackbar('입력 오류', '제목을 입력해주세요.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('잠깐!', '제목을 입력해주세요 🐾', snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (_contentController.text.trim().isEmpty) {
-      Get.snackbar('입력 오류', '내용을 입력해주세요.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('잠깐!', '내용을 입력해주세요 🐾', snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -55,7 +55,8 @@ class _InquiryWritePageState extends State<InquiryWritePage> {
         snackPosition: SnackPosition.TOP,
       );
     } catch (e) {
-      Get.snackbar('오류', '문의 접수에 실패했습니다: $e', snackPosition: SnackPosition.BOTTOM);
+      debugPrint('⚠️ Error submitting inquiry: $e');
+      Get.snackbar('잠깐!', '문의 접수에 실패했어요 🐾', snackPosition: SnackPosition.BOTTOM);
     } finally {
       setState(() => _isSubmitting = false);
     }

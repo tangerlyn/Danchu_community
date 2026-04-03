@@ -20,10 +20,10 @@ abstract class SearchRepository {
     bool strictBounds = false,
   });
 
-  /// Lightweight search for autocomplete suggestions (max 5 per Naver API).
+  /// Lightweight search for autocomplete suggestions (max 20 via page-looping).
   Future<List<PlaceEntity>> searchSuggestions(
     String query, {
-    int maxResults = 5,
+    int maxResults = 20,
     double? lat,
     double? lon,
   });

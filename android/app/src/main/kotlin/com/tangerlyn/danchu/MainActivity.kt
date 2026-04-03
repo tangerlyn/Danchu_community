@@ -1,4 +1,4 @@
-package com.example.pawprint_app
+package com.tangerlyn.danchu
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -44,7 +44,7 @@ class UnifiedSearchPanel extends StatelessWidget {
       }
 
       return ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 320),
+        constraints: const BoxConstraints(maxHeight: 500),
         child: ListView.separated(
           shrinkWrap: true,
           physics: const ClampingScrollPhysics(),

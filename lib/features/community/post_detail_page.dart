@@ -16,6 +16,7 @@ import '../../core/utils/paw_marker_utils.dart';
 import 'widgets/post_action_sheets.dart';
 import 'meetup_chat_page.dart';
 import '../../widgets/paw_loading_indicator.dart';
+import '../../widgets/image_gallery_page.dart';
 
 class PostDetailPage extends StatefulWidget {
   final CommunityPost post;
@@ -114,7 +115,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
           ),
         ],
       ),
-      body: Column(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -457,38 +461,48 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   
                   const SizedBox(height: 24),
 
-                  // Images
+                  // Images - Horizontal Thumbnail Slider
                   if (_post.imageUrls.isNotEmpty)
-                    ..._post.imageUrls.map((url) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          url,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 250,
-                              decoration: BoxDecoration(
-                                color: AppColors.sand.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(16),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: SizedBox(
+                        height: 100,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _post.imageUrls.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () => Get.to(() => ImageGalleryPage(
+                                imageUrls: _post.imageUrls,
+                                initialIndex: index,
+                              )),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: CachedNetworkImage(
+                                  imageUrl: _post.imageUrls[index],
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    width: 100,
+                                    height: 100,
+                                    color: AppColors.sand,
+                                    child: const Center(child: PawLoadingIndicator(size: 24)),
+                                  ),
+                                  errorWidget: (context, url, error) => Container(
+                                    width: 100,
+                                    height: 100,
+                                    color: AppColors.sand,
+                                    child: const Icon(Icons.broken_image, color: AppColors.taupe),
+                                  ),
+                                ),
                               ),
-                              child: const Center(child: PawLoadingIndicator(size: 40)),
                             );
                           },
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            height: 200,
-                            decoration: BoxDecoration(
-                              color: AppColors.sand.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Center(child: Icon(Icons.broken_image, color: AppColors.taupe, size: 40)),
-                          ),
                         ),
                       ),
-                    )),
+                    ),
                     
                   const SizedBox(height: 16),
                   
@@ -625,7 +639,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     );
                   }),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     child: SafeArea(
                       top: false,
                       minimum: EdgeInsets.zero,
@@ -685,6 +699,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
           ),
         ],
       ),
+    ),
     );
   }
 

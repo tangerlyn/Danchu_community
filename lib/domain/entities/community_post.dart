@@ -73,6 +73,7 @@ class CommunityPost {
   final List<Map<String, double>>? routePoints;
   final String? authorProfileImageUrl;
   final String? walkSummary;
+  final String? chatRoomImageUrl;
 
   CommunityPost({
     required this.id,
@@ -110,6 +111,7 @@ class CommunityPost {
     this.routePoints,
     this.authorProfileImageUrl,
     this.walkSummary,
+    this.chatRoomImageUrl,
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json, String id) {
@@ -151,6 +153,7 @@ class CommunityPost {
       routePoints: _parseRoutePoints(json['routePoints']),
       authorProfileImageUrl: json['authorProfileImageUrl'],
       walkSummary: json['walkSummary'],
+      chatRoomImageUrl: json['chatRoomImageUrl'],
     );
   }
 
@@ -190,6 +193,7 @@ class CommunityPost {
     List<Map<String, double>>? routePoints,
     String? authorProfileImageUrl,
     String? walkSummary,
+    String? chatRoomImageUrl,
   }) {
     return CommunityPost(
       id: id ?? this.id,
@@ -227,6 +231,7 @@ class CommunityPost {
       routePoints: routePoints ?? this.routePoints,
       authorProfileImageUrl: authorProfileImageUrl ?? this.authorProfileImageUrl,
       walkSummary: walkSummary ?? this.walkSummary,
+      chatRoomImageUrl: chatRoomImageUrl ?? this.chatRoomImageUrl,
     );
   }
 
@@ -285,6 +290,7 @@ class CommunityPost {
       if (routePoints != null) 'routePoints': routePoints,
       if (authorProfileImageUrl != null) 'authorProfileImageUrl': authorProfileImageUrl,
       if (walkSummary != null) 'walkSummary': walkSummary,
+      if (chatRoomImageUrl != null) 'chatRoomImageUrl': chatRoomImageUrl,
     };
   }
 }

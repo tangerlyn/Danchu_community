@@ -33,8 +33,8 @@ class HistoryPageState extends State<HistoryPage> {
   final ScrollController _scrollController = ScrollController();
   final ScheduleRepository _scheduleRepo = ScheduleRepository();
 
-  static const int _monthsBefore = 12;
-  static const int _totalMonths = 25;
+  static const int _monthsBefore = 36;
+  static const int _totalMonths = 73;
 
   late final DateTime _baseMonth;
 

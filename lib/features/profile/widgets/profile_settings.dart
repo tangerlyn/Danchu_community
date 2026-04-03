@@ -50,7 +50,6 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppColors.deepBrown),
                 title: const Text('프로필 수정', style: TextStyle(color: AppColors.deepBrown)),
-                subtitle: const Text('보호자 정보와 강아지 정보를 수정합니다'),
                 onTap: () {
                   Navigator.pop(ctx);
                   controller.toggleEdit();
@@ -60,7 +59,6 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
               ListTile(
                 leading: const Icon(Icons.notifications_outlined, color: AppColors.deepBrown),
                 title: const Text('알림 설정', style: TextStyle(color: AppColors.deepBrown)),
-                subtitle: const Text('댓글, 좋아요, 모임 알림을 관리합니다'),
                 onTap: () {
                   Navigator.pop(ctx);
                   Get.to(() => const NotificationSettingsPage());
@@ -70,7 +68,6 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
               ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.deepBrown),
                 title: const Text('로그아웃', style: TextStyle(color: AppColors.deepBrown)),
-                subtitle: const Text('계정에서 로그아웃합니다'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   Get.put(AuthController());
@@ -81,7 +78,6 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
               ListTile(
                 leading: Icon(Icons.person_off, color: AppColors.deepBrown),
                 title: Text('회원 탈퇴하기', style: TextStyle(color: AppColors.deepBrown)),
-                subtitle: const Text('계정과 모든 데이터가 삭제됩니다'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showDeleteAccountDialog(context, controller);
@@ -334,6 +330,6 @@ Future<void> _performAccountDeletion(ProfileController controller) async {
     Get.snackbar('탈퇴 완료', '모든 데이터가 삭제되었습니다.', snackPosition: SnackPosition.TOP);
   } catch (e) {
     debugPrint('❌ Account deletion error: $e');
-    Get.snackbar('오류', '알 수 없는 오류가 발생했습니다: $e', snackPosition: SnackPosition.BOTTOM);
+    Get.snackbar('잠깐!', '탈퇴 처리 중 문제가 발생했어요. 고객센터로 문의해주세요 🐾');
   }
 }

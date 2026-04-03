@@ -6,6 +6,7 @@ class ChatMessage {
   final String senderNickname;
   final String message;
   final String? imageUrl;
+  final List<String> imageUrls;
   final DateTime createdAt;
   final List<String> readBy;
 
@@ -15,6 +16,7 @@ class ChatMessage {
     required this.senderNickname,
     required this.message,
     this.imageUrl,
+    this.imageUrls = const [],
     required this.createdAt,
     this.readBy = const [],
   });
@@ -26,6 +28,7 @@ class ChatMessage {
       senderNickname: json['senderNickname'] ?? '',
       message: json['message'] ?? '',
       imageUrl: json['imageUrl'],
+      imageUrls: List<String>.from(json['imageUrls'] ?? []),
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readBy: List<String>.from(json['readBy'] ?? []),
     );
@@ -37,6 +40,7 @@ class ChatMessage {
       'senderNickname': senderNickname,
       'message': message,
       if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       'createdAt': Timestamp.now(),
       'readBy': readBy,
     };

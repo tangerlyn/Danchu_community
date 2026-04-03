@@ -82,7 +82,6 @@ class InquiryPage extends StatelessWidget {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: docs.length,
                   separatorBuilder: (_, __) => const Divider(
                     height: 1,

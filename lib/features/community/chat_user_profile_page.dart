@@ -131,7 +131,7 @@ class _ChatUserProfilePageState extends State<ChatUserProfilePage> {
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
           // Dog Profiles Title
           Padding(
@@ -182,40 +182,40 @@ class _ChatUserProfilePageState extends State<ChatUserProfilePage> {
               ),
             )
           else ...[
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.55,
-              ),
-              child: SingleChildScrollView(
-                child: dogs.length > 1
-                    ? SizedBox(
-                        height: 380,
-                        child: PageView.builder(
-                          controller: _pageController,
-                          itemCount: dogs.length,
-                          onPageChanged: (index) {
-                            setState(() => _currentDogIndex = index);
-                          },
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: MungCardWidget(
-                                dog: dogs[index],
-                                profile: profile,
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+            if (dogs.length > 1)
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.60,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: dogs.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentDogIndex = index);
+                  },
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
                         child: MungCardWidget(
-                          dog: dogs.isNotEmpty ? dogs.first : null,
+                          dog: dogs[index],
                           profile: profile,
                         ),
                       ),
+                    );
+                  },
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: MungCardWidget(
+                    dog: dogs.isNotEmpty ? dogs.first : null,
+                    profile: profile,
+                  ),
+                ),
               ),
-            ),
 
             // Dot Indicator
             if (dogs.length > 1)

@@ -116,7 +116,7 @@ class TermsOfServicePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _LegalPageScaffold(
       title: '이용약관',
-      lastUpdated: '2026년 1월 1일',
+      lastUpdated: '2026년 X월 X일',
       sections: const [
         _LegalSection(
           '제1조 (목적)',
@@ -196,7 +196,7 @@ class PrivacyPolicyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _LegalPageScaffold(
       title: '개인정보처리방침',
-      lastUpdated: '2026년 1월 1일',
+      lastUpdated: '2026년 X월 X일',
       sections: const [
         _LegalSection(
           '1. 수집하는 개인정보 항목',
@@ -239,6 +239,10 @@ class PrivacyPolicyPage extends StatelessWidget {
           '단추는 서비스 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.\n\n'
           '· Google Firebase (Firestore, Storage, Authentication)\n'
           '  - 위탁 목적: 데이터 저장, 인증, 파일 보관\n\n'
+          '· Google Firebase Cloud Messaging (FCM)\n'
+          '  - 위탁 목적: 푸시 알림 발송\n\n'
+          '· 네이버 클라우드 플랫폼 (네이버 지도)\n'
+          '  - 위탁 목적: 지도 서비스 및 장소 검색\n\n'
           '· 카카오 (카카오 로그인)\n'
           '  - 위탁 목적: 소셜 로그인 인증\n\n'
           '· 네이버 (네이버 로그인)\n'
@@ -269,6 +273,7 @@ class PrivacyPolicyPage extends StatelessWidget {
           '9. 개인정보 보호책임자',
           '개인정보 처리에 관한 문의는 아래로 연락해 주세요.\n\n'
           '· 서비스명: 단추\n'
+          '· 책임자: 김규린\n'
           '· 문의: 앱 내 문의하기 기능을 이용해 주세요.\n\n'
           '이용자는 개인정보보호법에 따른 개인정보 침해 신고를 개인정보보호위원회(privacy.go.kr) 또는 한국인터넷진흥원(118)에 할 수 있습니다.',
         ),

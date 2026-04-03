@@ -453,7 +453,7 @@ class HomeController extends GetxController {
 
       final results = await repository.searchSuggestions(
         query,
-        maxResults: 5,
+        maxResults: 20,
         lat: lat,
         lon: lon,
       );

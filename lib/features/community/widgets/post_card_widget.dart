@@ -28,7 +28,7 @@ class PostCardWidget extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => Get.to(() => PostDetailPage(post: post)),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(

@@ -137,8 +137,9 @@ class _LocationPickPageState extends State<LocationPickPage> {
         // Only show snackbar for explicit searches or long queries that return nothing
       }
     } catch (e) {
+      debugPrint('⚠️ Error searching places: $e');
       setState(() => _isSearching = false);
-      Get.snackbar('오류', '검색 중 문제가 발생했습니다.');
+      Get.snackbar('잠깐!', '검색 중 문제가 발생했어요. 다시 시도해주세요 🐾');
     }
   }
 

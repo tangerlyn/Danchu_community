@@ -33,6 +33,8 @@ class _MeetupChatListWidgetState extends State<MeetupChatListWidget> {
   final Map<String, int> _participantCounts = {};
   // Cache: postId -> chatRoomName
   final Map<String, String> _chatRoomNames = {};
+  // Cache: postId -> chatRoomImageUrl
+  final Map<String, String> _chatRoomImageUrls = {};
   // Stream subscriptions
   final List<StreamSubscription> _subscriptions = [];
   
@@ -84,18 +86,24 @@ class _MeetupChatListWidgetState extends State<MeetupChatListWidget> {
       });
       _subscriptions.add(participantSub);
 
-      // Load chatRoomName
-      _firestore.collection('community_posts').doc(post.id).get().then((doc) {
+      // Listen to post document for name and image updates
+      final postSub = _firestore.collection('community_posts').doc(post.id).snapshots().listen((doc) {
         if (mounted && doc.exists) {
           final data = doc.data() as Map<String, dynamic>?;
           final name = data?['chatRoomName'] as String?;
-          if (name != null && name.isNotEmpty) {
-            setState(() {
+          final imageUrl = data?['chatRoomImageUrl'] as String?;
+          
+          setState(() {
+            if (name != null && name.isNotEmpty) {
               _chatRoomNames[post.id] = name;
-            });
-          }
+            }
+            if (imageUrl != null && imageUrl.isNotEmpty) {
+              _chatRoomImageUrls[post.id] = imageUrl;
+            }
+          });
         }
       });
+      _subscriptions.add(postSub);
     }
 
     setState(() {
@@ -180,7 +188,7 @@ class _MeetupChatListWidgetState extends State<MeetupChatListWidget> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  // Chat icon with participant count
+                  // Representative image or fallback icon
                   Container(
                     width: 48,
                     height: 48,
@@ -188,8 +196,9 @@ class _MeetupChatListWidgetState extends State<MeetupChatListWidget> {
                       color: AppColors.sand.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.groups_outlined, color: AppColors.deepBrown, size: 24),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: _buildChatRoomImage(post),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -287,5 +296,31 @@ class _MeetupChatListWidgetState extends State<MeetupChatListWidget> {
     } else {
       return DateFormat('M/d').format(dateTime);
     }
+  }
+
+  Widget _buildChatRoomImage(CommunityPost post) {
+    final chatRoomImageUrl = _chatRoomImageUrls[post.id];
+    final postFirstImageUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
+    final String? finalUrl = (chatRoomImageUrl != null && chatRoomImageUrl.isNotEmpty) 
+        ? chatRoomImageUrl 
+        : postFirstImageUrl;
+
+    if (finalUrl != null && finalUrl.isNotEmpty) {
+      return Image.network(
+        finalUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(
+          Icons.groups_outlined,
+          color: AppColors.deepBrown,
+          size: 24,
+        ),
+      );
+    }
+
+    return const Icon(
+      Icons.groups_outlined,
+      color: AppColors.deepBrown,
+      size: 24,
+    );
   }
 }

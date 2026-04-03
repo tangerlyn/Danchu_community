@@ -87,8 +87,8 @@ class PlaceDetailController extends GetxController {
         Get.snackbar('관심 장소', '관심 장소로 저장되었습니다 🔖');
       }
     } catch (e) {
-      debugPrint('Error toggling bookmark: $e');
-      Get.snackbar('오류', '북마크 처리에 실패했습니다.');
+      debugPrint('⚠️ Error toggling bookmark: $e');
+      Get.snackbar('잠깐!', '관심 장소 저장에 실패했어요 🐾');
     }
   }
 
@@ -111,7 +111,7 @@ class PlaceDetailController extends GetxController {
   Future<bool> submitReview(int rating, String content) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      Get.snackbar('오류', '로그인이 필요합니다.');
+      Get.snackbar('알림', '로그인이 필요합니다.');
       return false;
     }
 
@@ -149,8 +149,8 @@ class PlaceDetailController extends GetxController {
       
       return true;
     } catch (e) {
-      debugPrint('Error adding review: $e');
-      Get.snackbar('오류', '후기 등록에 실패했습니다.');
+      debugPrint('⚠️ Error adding review: $e');
+      Get.snackbar('잠깐!', '후기 등록에 실패했어요 🐾');
       return false;
     }
   }
@@ -158,7 +158,7 @@ class PlaceDetailController extends GetxController {
   Future<bool> updateReview(String reviewId, int rating, String content) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      Get.snackbar('오류', '로그인이 필요합니다.');
+      Get.snackbar('알림', '로그인이 필요합니다.');
       return false;
     }
 
@@ -182,8 +182,8 @@ class PlaceDetailController extends GetxController {
       
       return true;
     } catch (e) {
-      debugPrint('Error updating review: $e');
-      Get.snackbar('오류', '후기 수정에 실패했습니다.');
+      debugPrint('⚠️ Error updating review: $e');
+      Get.snackbar('잠깐!', '후기 수정에 실패했어요 🐾');
       return false;
     }
   }
@@ -205,8 +205,8 @@ class PlaceDetailController extends GetxController {
       
       return true;
     } catch (e) {
-      debugPrint('Error deleting review: $e');
-      Get.snackbar('오류', '후기 삭제에 실패했습니다.');
+      debugPrint('⚠️ Error deleting review: $e');
+      Get.snackbar('잠깐!', '후기 삭제에 실패했어요 🐾');
       return false;
     }
   }

@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../core/app_colors.dart';
+import '../../widgets/paw_loading_indicator.dart';
 import 'post_create_controller.dart';
 import 'community_constants.dart';
 import 'widgets/pet_report_form.dart';
-import '../profile/profile_controller.dart';
 
 class PostCreatePage extends StatefulWidget {
   const PostCreatePage({super.key});
@@ -16,73 +16,41 @@ class PostCreatePage extends StatefulWidget {
 }
 
 class _PostCreatePageState extends State<PostCreatePage> {
+  final controller = Get.put(PostCreateController());
   bool _showDateTimeFields = false;
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(PostCreateController());
-    if (!Get.isRegistered<ProfileController>()) {
-      Get.put(ProfileController());
-    }
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final hasContent = controller.titleController.text.trim().isNotEmpty ||
-            controller.contentController.text.trim().isNotEmpty ||
-            controller.selectedImages.isNotEmpty;
-        if (!hasContent) {
-          Navigator.of(context).pop();
-          return;
-        }
-        final shouldPop = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('나가시겠어요?',
-                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.deepBrown)),
-            content: const Text('작성 중인 글이 저장되지 않습니다. 나가시겠어요?',
-                style: TextStyle(color: AppColors.mocha)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('이어서 작성',
-                    style: TextStyle(color: AppColors.taupe, fontWeight: FontWeight.w600)),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('나가기',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-        );
-        if (shouldPop == true && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
         backgroundColor: AppColors.white,
-        appBar: AppBar(
-          title: const Text('글쓰기', style: TextStyle(fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          actions: [
-            Obx(() {
-              return TextButton(
-                onPressed: controller.isLoading.value ? null : () => controller.submitPost(),
-                child: controller.isLoading.value
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.deepBrown),
-                      )
-                    : const Text('등록', style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold, fontSize: 16)),
-              );
-            }),
-          ],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.deepBrown),
+          onPressed: () => Get.back(),
         ),
-        body: SingleChildScrollView(
+        title: const Text('글쓰기',
+            style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold, fontSize: 18)),
+        centerTitle: true,
+        actions: [
+          Obx(() => TextButton(
+            onPressed: controller.isLoading.value ? null : () => controller.submitPost(),
+            child: controller.isLoading.value
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.deepBrown),
+                  )
+                : const Text('등록',
+                    style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold, fontSize: 16)),
+          )),
+        ],
+      ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +58,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
               // Category Selectors
               Obx(() {
                 final mainCat = controller.selectedMainCategory.value;
-                final subTags = CommunityConstants.getSubTagsForCategory(mainCat).where((t) => t != '전체').toList();
+                final subTags = CommunityConstants.getSubTagsForCategory(mainCat).where((t) => t != '전체' && t != '인기').toList();
                 
                 if (subTags.isEmpty) return const SizedBox.shrink();
 
@@ -103,8 +71,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: subTags.map((tag) {
-                          final isSelected = controller.selectedSubCategory.value == tag || 
-                                           (controller.selectedSubCategory.value == '전체' && tag == subTags.first);
+                          final isSelected = controller.selectedSubCategory.value == tag;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
                             child: GestureDetector(
@@ -137,7 +104,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
                   ],
                 );
               }),
-              const SizedBox(height: 24),
 
               // Title
               TextField(
@@ -150,7 +116,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
               ),
               const SizedBox(height: 16),
 
-              // Dynamic Meetup Form Phase
               // Dynamic Form Phase (Meetup or Pet Report)
               Obx(() {
                 final mainCat = controller.selectedMainCategory.value;
@@ -160,7 +125,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 날짜/시간 토글 버튼
                       if (!_showDateTimeFields)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -186,75 +150,74 @@ class _PostCreatePageState extends State<PostCreatePage> {
                             ),
                           ),
                         ),
-                      // 날짜/시간 필드 (토글 시 표시)
                       if (_showDateTimeFields)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMeetupField(
-                              icon: Icons.calendar_today_outlined,
-                              title: '날짜',
-                              child: InkWell(
-                                onTap: () => controller.selectMeetupDate(context),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.sand.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Obx(() => Text(
-                                        controller.selectedMeetupDate.value != null
-                                            ? DateFormat('yyyy.MM.dd').format(controller.selectedMeetupDate.value!)
-                                            : '날짜 선택',
-                                        style: TextStyle(
-                                          color: controller.selectedMeetupDate.value != null ? AppColors.deepBrown : AppColors.taupe,
-                                          fontSize: 14,
-                                        ),
-                                      )),
-                                      const Spacer(),
-                                      const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.taupe),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMeetupField(
-                              icon: Icons.access_time_outlined,
-                              title: '시간',
-                              child: InkWell(
-                                onTap: () => controller.selectMeetupTime(context),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.sand.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Obx(() => Text(
-                                        controller.selectedMeetupDate.value != null
-                                            ? DateFormat('a h:mm', 'ko_KR').format(controller.selectedMeetupDate.value!)
-                                            : '시간 선택',
-                                        style: TextStyle(
-                                          color: controller.selectedMeetupDate.value != null ? AppColors.deepBrown : AppColors.taupe,
-                                          fontSize: 14,
-                                        ),
-                                      )),
-                                      const Spacer(),
-                                      const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.taupe),
-                                    ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMeetupField(
+                                icon: Icons.calendar_today_outlined,
+                                title: '날짜',
+                                child: InkWell(
+                                  onTap: () => controller.selectMeetupDate(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.sand.withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Obx(() => Text(
+                                          controller.selectedMeetupDate.value != null
+                                              ? DateFormat('yyyy.MM.dd').format(controller.selectedMeetupDate.value!)
+                                              : '날짜 선택',
+                                          style: TextStyle(
+                                            color: controller.selectedMeetupDate.value != null ? AppColors.deepBrown : AppColors.taupe,
+                                            fontSize: 14,
+                                          ),
+                                        )),
+                                        const Spacer(),
+                                        const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.taupe),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildMeetupField(
+                                icon: Icons.access_time_outlined,
+                                title: '시간',
+                                child: InkWell(
+                                  onTap: () => controller.selectMeetupTime(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.sand.withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Obx(() => Text(
+                                          controller.selectedMeetupDate.value != null
+                                              ? DateFormat('a h:mm', 'ko_KR').format(controller.selectedMeetupDate.value!)
+                                              : '시간 선택',
+                                          style: TextStyle(
+                                            color: controller.selectedMeetupDate.value != null ? AppColors.deepBrown : AppColors.taupe,
+                                            fontSize: 14,
+                                          ),
+                                        )),
+                                        const Spacer(),
+                                        const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.taupe),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -369,6 +332,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
               const SizedBox(height: 24),
 
               // Image Picker Button & List
+              const Text('사진 (최대 5장)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha)),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Obx(() {
@@ -381,7 +346,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
                         decoration: BoxDecoration(
                           color: isFull ? AppColors.sand.withOpacity(0.5) : AppColors.sand,
                           borderRadius: BorderRadius.circular(12),
-                          border: isFull ? Border.all(color: AppColors.sand) : null,
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -392,7 +356,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                               style: TextStyle(
                                 color: isFull ? AppColors.taupe.withOpacity(0.5) : AppColors.taupe, 
                                 fontSize: 12,
-                                fontWeight: isFull ? FontWeight.normal : FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -404,18 +368,39 @@ class _PostCreatePageState extends State<PostCreatePage> {
                   Expanded(
                     child: SizedBox(
                       height: 80,
-                      child: Obx(() => ListView.builder(
+                      child: Obx(() => ReorderableListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: controller.selectedImages.length,
+                        onReorder: controller.reorderImages,
+                        proxyDecorator: (child, index, animation) {
+                          return AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) {
+                              final scale = 1.0 + (animation.value * 0.08);
+                              return Transform.scale(
+                                scale: scale,
+                                child: Material(
+                                  elevation: 8,
+                                  borderRadius: BorderRadius.circular(12),
+                                  shadowColor: Colors.black38,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: child,
+                          );
+                        },
                         itemBuilder: (context, index) {
+                          final imageFile = controller.selectedImages[index];
                           return Padding(
+                            key: ValueKey(imageFile.path),
                             padding: const EdgeInsets.only(right: 8.0),
                             child: Stack(
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: Image.file(
-                                    controller.selectedImages[index],
+                                    imageFile,
                                     width: 80,
                                     height: 80,
                                     fit: BoxFit.cover,
@@ -460,20 +445,12 @@ class _PostCreatePageState extends State<PostCreatePage> {
           children: [
             Icon(icon, size: 16, color: AppColors.taupe),
             const SizedBox(width: 4),
-            Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.mocha)),
+            Text(title, style: const TextStyle(fontSize: 12, color: AppColors.taupe, fontWeight: FontWeight.w600)),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         child,
       ],
     );
   }
 }
-
-/*
-// ==========================================
-// --- Legacy UI Code (For reference)
-// ==========================================
-import 'dart:io';
-// ... previous implementation without meetup form
-*/

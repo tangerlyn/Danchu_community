@@ -83,7 +83,7 @@ class SearchRepositoryImpl implements SearchRepository {
   @override
   Future<List<PlaceEntity>> searchSuggestions(
     String query, {
-    int maxResults = 5,
+    int maxResults = 20,
     double? lat,
     double? lon,
   }) async {

@@ -149,10 +149,7 @@ class AuthController extends GetxController {
       }
     } catch (e, stackTrace) {
       debugPrint("❌ [AuthController] Error during Naver Login: $e\n$stackTrace");
-      Get.snackbar("로그인 실패", "네이버 로그인 중 오류가 발생했습니다: $e",
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withOpacity(0.8),
-          colorText: Colors.white);
+      Get.snackbar('잠깐!', '로그인에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -255,13 +252,7 @@ class AuthController extends GetxController {
       }
     } catch (e, stackTrace) {
       debugPrint("❌ [AuthController] Error during Kakao Login: $e\n$stackTrace");
-      Get.snackbar(
-        "로그인 실패",
-        "카카오 로그인 중 오류가 발생했습니다: $e",
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.8),
-        colorText: Colors.white,
-      );
+      Get.snackbar('잠깐!', '로그인에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }

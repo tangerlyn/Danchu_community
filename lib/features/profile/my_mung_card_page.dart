@@ -109,9 +109,12 @@ class MyMungCardPage extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                       child: Center(
-                        child: MungCardWidget(
-                          dog: dogs[index],
-                          profile: controller.userProfile.value,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: MungCardWidget(
+                            dog: dogs[index],
+                            profile: controller.userProfile.value,
+                          ),
                         ),
                       ),
                     );

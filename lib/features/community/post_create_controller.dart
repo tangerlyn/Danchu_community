@@ -167,8 +167,17 @@ class PostCreateController extends GetxController with PetReportMixin {
         selectedImages.addAll(images.map((x) => File(x.path)));
       }
     } catch (e) {
-      Get.snackbar('오류', '이미지를 불러오는 중 문제가 발생했습니다.');
+      debugPrint('⚠️ Error picking images: $e');
+      Get.snackbar('잠깐!', '사진을 불러오는 중 문제가 발생했어요. 다시 시도해주세요 🐾');
     }
+  }
+
+  void reorderImages(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final File image = selectedImages.removeAt(oldIndex);
+    selectedImages.insert(newIndex, image);
   }
 
   void removeImage(int index) {
@@ -377,8 +386,8 @@ class PostCreateController extends GetxController with PetReportMixin {
       
       Get.off(() => PostDetailPage(post: postWithImages, fromCreate: true));
     } catch (e, stack) {
-      print('Error submitting post: $e\n$stack');
-      Get.snackbar('오류', e.toString());
+      debugPrint('⚠️ Error submitting post: $e\n$stack');
+      Get.snackbar('잠깐!', '글 등록에 실패했어요. 잠시 후 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }

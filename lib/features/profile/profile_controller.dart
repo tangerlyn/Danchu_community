@@ -13,6 +13,7 @@ import '../main_screen.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/models/dog_profile.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../services/local_notification_service.dart';
 
 class ProfileController extends GetxController {
   final ProfileRepository _repository = ProfileRepository();
@@ -79,7 +80,8 @@ class ProfileController extends GetxController {
         birthYear.value = DateTime.now().year;
       }
     } catch (e) {
-      Get.snackbar("Error", "Failed to load profile: $e");
+      debugPrint('⚠️ Failed to load profile: $e');
+      Get.snackbar('잠깐!', '프로필을 불러오는 중 문제가 발생했어요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -137,7 +139,7 @@ class ProfileController extends GetxController {
 
   Future<void> saveDog() async {
     if (dogNameController.text.isEmpty) {
-      Get.snackbar("입력 오류", "강아지 이름은 필수입니다.", snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar("잠깐!", "강아지 이름은 필수입니다 🐾", snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -145,7 +147,7 @@ class ProfileController extends GetxController {
     if (dogWeightController.text.isNotEmpty) {
       final w = double.tryParse(dogWeightController.text);
       if (w == null || w <= 0) {
-        Get.snackbar("입력 오류", "몸무게를 올바른 숫자로 입력해주세요 (0보다 커야 함)", snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar("잠깐!", "몸무게를 올바른 숫자로 입력해주세요 (0보다 커야 함) 🐾", snackPosition: SnackPosition.BOTTOM);
         return;
       }
       weightValue = w;
@@ -201,6 +203,18 @@ class ProfileController extends GetxController {
       isEditing.value = false;
       pickedImage.value = null;
 
+      // 생일 알림 등록 (기존 알림 취소 후 새로 등록)
+      await LocalNotificationService.cancelBirthdayNotification(dogId);
+
+      if (birthMonth.value != null && birthDay.value != null) {
+        await LocalNotificationService.scheduleBirthdayNotification(
+          dogId: dogId,
+          dogName: dogNameController.text.trim(),
+          birthMonth: birthMonth.value!,
+          birthDay: birthDay.value!,
+        );
+      }
+
       // Fire-and-forget legacy update (first dog = main)
       if (_editingDogIndex <= 0 || dogs.length == 1) {
         _updateLegacyDogFields(uid, savedDog, imageUrl);
@@ -208,7 +222,8 @@ class ProfileController extends GetxController {
 
       showCenterToast("멍카 저장 완료!");
     } catch (e) {
-      Get.snackbar("오류", "저장 중 문제가 발생했습니다: $e");
+      debugPrint('⚠️ Error saving dog profile: $e');
+      Get.snackbar('잠깐!', '강아지 정보 저장에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -240,12 +255,15 @@ class ProfileController extends GetxController {
   Future<void> deleteDog(int index) async {
     if (index < 0 || index >= dogs.length) return;
     if (dogs.length <= 1) {
-      Get.snackbar("삭제 불가", "최소 1마리는 등록되어 있어야 합니다.", snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar("잠깐!", "최소 1마리는 등록되어 있어야 합니다 🐾", snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
     final dog = dogs[index];
     if (dog.dogId.startsWith('legacy_')) return; // Can't delete unmigrated
+
+    // 생일 알림 취소
+    await LocalNotificationService.cancelBirthdayNotification(dog.dogId);
 
     isLoading.value = true;
     try {
@@ -259,7 +277,8 @@ class ProfileController extends GetxController {
 
       Get.snackbar("삭제 완료", "${dog.dogName}의 멍카가 삭제되었습니다.");
     } catch (e) {
-      Get.snackbar("오류", "삭제 실패: $e");
+      debugPrint('⚠️ Error deleting dog profile: $e');
+      Get.snackbar('잠깐!', '강아지 정보 삭제에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -269,7 +288,7 @@ class ProfileController extends GetxController {
 
   Future<void> saveProfile() async {
     if (nicknameController.text.isEmpty) {
-      Get.snackbar("입력 오류", "닉네임은 필수입니다.");
+      Get.snackbar("잠깐!", "닉네임은 필수입니다 🐾");
       return;
     }
 
@@ -291,7 +310,8 @@ class ProfileController extends GetxController {
         Get.offAll(() => const OnboardingPage());
       }
     } catch (e) {
-      Get.snackbar("Error", "Failed to save profile: $e");
+      debugPrint('⚠️ Failed to save profile: $e');
+      Get.snackbar('잠깐!', '프로필 저장에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -299,7 +319,7 @@ class ProfileController extends GetxController {
 
   Future<void> saveProfileUpdate() async {
     if (nicknameController.text.isEmpty) {
-       Get.snackbar("입력 오류", "닉네임은 필수입니다.", snackPosition: SnackPosition.BOTTOM);
+       Get.snackbar("잠깐!", "닉네임은 필수입니다 🐾", snackPosition: SnackPosition.BOTTOM);
        return;
     }
 
@@ -311,7 +331,8 @@ class ProfileController extends GetxController {
       isLoading.value = false;
       showCenterToast("프로필 저장 완료!");
     }).catchError((e) {
-       Get.snackbar("오류 발생", "저장 중 문제가 발생했습니다: $e");
+       debugPrint('⚠️ Error in saveProfileUpdate: $e');
+       Get.snackbar('잠깐!', '프로필 저장에 실패했어요. 다시 시도해주세요 🐾');
        isLoading.value = false;
     });
   }
@@ -347,7 +368,7 @@ class ProfileController extends GetxController {
 
   Future<void> updateUserBasicInfo() async {
     if (nicknameController.text.isEmpty) {
-      Get.snackbar("입력 오류", "닉네임은 필수입니다.", snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar("잠깐!", "닉네임은 필수입니다 🐾", snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -369,7 +390,8 @@ class ProfileController extends GetxController {
       Get.back(); // Go back from edit page
       showCenterToast("프로필 수정 완료!");
     } catch (e) {
-      Get.snackbar("오류", "수정 중 문제가 발생했습니다: $e");
+      debugPrint('⚠️ Error updating user basic info: $e');
+      Get.snackbar('잠깐!', '프로필 수정에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }

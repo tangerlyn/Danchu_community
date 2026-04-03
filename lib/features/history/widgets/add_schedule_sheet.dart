@@ -516,7 +516,8 @@ class _AddScheduleSheetState extends State<AddScheduleSheet> {
           margin: const EdgeInsets.all(16),
           borderRadius: 12);
     } catch (e) {
-      Get.snackbar('오류', '일정 저장에 실패했습니다: $e');
+      debugPrint('⚠️ Error saving schedule: $e');
+      Get.snackbar('잠깐!', '일정 저장에 실패했어요 🐾');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -531,7 +532,10 @@ class _AddScheduleSheetState extends State<AddScheduleSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
       padding: EdgeInsets.only(
         left: 24,
         right: 24,
@@ -872,8 +876,9 @@ class _AddScheduleSheetState extends State<AddScheduleSheet> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _pickerTile({
     required IconData icon,

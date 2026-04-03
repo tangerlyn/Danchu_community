@@ -6,7 +6,6 @@ import '../../data/models/user_profile.dart';
 import '../../domain/repositories/friend_repository.dart';
 import 'profile_controller.dart';
 import 'my_mung_card_page.dart';
-import '../friend/friend_list_page.dart';
 import '../auth/auth_controller.dart';
 import 'widgets/profile_edit_form.dart';
 import 'widgets/profile_settings.dart';
@@ -315,14 +314,6 @@ class ProfilePage extends StatelessWidget {
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.deepBrown,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    '강아지 카드를 추가하고 편집해보세요',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.taupe,
                     ),
                   ),
                 ],
