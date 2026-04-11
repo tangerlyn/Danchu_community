@@ -11,8 +11,8 @@ import '../profile_controller.dart';
 import '../../history/database_helper.dart';
 import '../notification_settings_page.dart';
 import '../../auth/auth_controller.dart';
-import '../../auth/auth_controller.dart';
 import '../../auth/login_page.dart';
+import '../blocked_users_page.dart';
 
 /// Shows settings bottom sheet with onboarding reset and account deletion.
 void showSettingsMenu(BuildContext context, ProfileController controller) {
@@ -49,7 +49,7 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppColors.deepBrown),
-                title: const Text('프로필 수정', style: TextStyle(color: AppColors.deepBrown)),
+                title: const Text('내 정보 수정', style: TextStyle(color: AppColors.deepBrown)),
                 onTap: () {
                   Navigator.pop(ctx);
                   controller.toggleEdit();
@@ -62,6 +62,15 @@ void showSettingsMenu(BuildContext context, ProfileController controller) {
                 onTap: () {
                   Navigator.pop(ctx);
                   Get.to(() => const NotificationSettingsPage());
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.block, color: AppColors.deepBrown),
+                title: const Text('차단 사용자 관리', style: TextStyle(color: AppColors.deepBrown)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Get.to(() => const BlockedUsersPage());
                 },
               ),
               const Divider(height: 1),

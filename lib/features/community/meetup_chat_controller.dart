@@ -12,6 +12,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../core/utils/custom_center_toast.dart';
 import '../../core/app_colors.dart';
 import '../../services/fcm_service.dart';
+import '../../data/repositories/community_repository_impl.dart';
 import 'community_controller.dart';
 
 class MeetupChatController extends GetxController {
@@ -28,8 +29,9 @@ class MeetupChatController extends GetxController {
   MeetupChatController({required this.postId, required this.postTitle});
 
   final failedMessages = <ChatMessage>[].obs;
+  var isLoadingMessages = true.obs;
   final userProfileImages = <String, String?>{}.obs;
-  
+
   final messages = <ChatMessage>[].obs;
   final messageTextController = TextEditingController();
   final messageText = ''.obs;
@@ -39,6 +41,10 @@ class MeetupChatController extends GetxController {
   final chatRoomName = ''.obs;
   final chatRoomImageUrl = ''.obs;
   final participantCount = 0.obs;
+
+  var hostUid = RxnString();
+  var joinType = 'free'.obs;
+  var pendingRequestCount = 0.obs;
 
   String? _currentUid;
   String? _currentNickname;
@@ -56,19 +62,26 @@ class MeetupChatController extends GetxController {
 
     if (_currentUid != null) {
       _initChatStream();
+      _listenPendingRequests();
     }
   }
 
   Future<void> _initChatStream() async {
     await _chatRepository.updateLastReadAt(postId, _currentUid!);
-    final joinedAt = await _chatRepository.getParticipantJoinedAt(postId, _currentUid!);
+    final joinedAt = await _chatRepository.getParticipantJoinedAt(
+      postId,
+      _currentUid!,
+    );
 
     // ✅ 채팅방 진입 시 참가자 프로필 미리 로드
     await _preloadParticipantProfiles();
 
-    _chatRepository.getMessagesStream(postId, joinedAt: joinedAt).listen((data) {
+    _chatRepository.getMessagesStream(postId, joinedAt: joinedAt).listen((
+      data,
+    ) {
       messages.value = data;
-      
+      isLoadingMessages.value = false;
+
       if (_currentUid != null) {
         _chatRepository.updateLastReadAt(postId, _currentUid!);
       }
@@ -119,36 +132,107 @@ class MeetupChatController extends GetxController {
 
   Future<void> _loadMuteStatus() async {
     if (_currentUid != null) {
-      isChatMuted.value = await _chatRepository.getChatMuted(postId, _currentUid!);
+      isChatMuted.value = await _chatRepository.getChatMuted(
+        postId,
+        _currentUid!,
+      );
     }
   }
 
   Future<void> _loadChatRoomName() async {
     try {
-      final doc = await _firestore.collection('community_posts').doc(postId).get();
+      final doc = await _firestore
+          .collection('community_posts')
+          .doc(postId)
+          .get();
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>?;
         final name = data?['chatRoomName'] as String?;
         chatRoomName.value = name ?? postTitle;
         chatRoomImageUrl.value = data?['chatRoomImageUrl'] as String? ?? '';
+        hostUid.value = data?['hostUid'] as String?;
+        joinType.value = data?['joinType'] as String? ?? 'free';
       } else {
         chatRoomName.value = postTitle;
         chatRoomImageUrl.value = '';
+        hostUid.value = null;
+        joinType.value = 'free';
       }
     } catch (e) {
       chatRoomName.value = postTitle;
       chatRoomImageUrl.value = '';
+      hostUid.value = null;
+      joinType.value = 'free';
     }
   }
 
+  void _listenPendingRequests() {
+    if (postId.isEmpty) return;
+
+    _firestore
+        .collection('community_posts')
+        .doc(postId)
+        .collection('join_requests')
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .listen((snapshot) {
+          pendingRequestCount.value = snapshot.docs.length;
+        });
+  }
+
+  bool get isHost => _currentUid != null && _currentUid == hostUid.value;
+
   void _listenParticipantCount() {
     _firestore
-        .collection('community_posts').doc(postId)
+        .collection('community_posts')
+        .doc(postId)
         .collection('participants')
         .snapshots()
         .listen((snapshot) {
-      participantCount.value = snapshot.docs.length;
-    });
+          participantCount.value = snapshot.docs.length;
+        });
+  }
+
+  Future<List<Map<String, dynamic>>> getParticipantsInfo() async {
+    final List<Map<String, dynamic>> info = [];
+    try {
+      final snap = await _firestore
+          .collection('community_posts')
+          .doc(postId)
+          .collection('participants')
+          .get();
+
+      for (var doc in snap.docs) {
+        final uid = doc.id;
+        final profile = await _profileRepository.getUserProfile(uid);
+        info.add({
+          'uid': uid,
+          'nickname': profile?.nickname ?? '알 수 없음',
+          'profileImageUrl': profile?.profileImageUrl,
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching participants info: $e');
+    }
+    return info;
+  }
+
+  Future<void> changeHost(String newHostUid, String newHostNickname) async {
+    if (_currentUid == null) return;
+
+    try {
+      final repo = CommunityRepositoryImpl();
+      await repo.changeHost(postId, newHostUid);
+      hostUid.value = newHostUid;
+      await _chatRepository.sendSystemMessage(
+        postId,
+        '${newHostNickname}님으로 단장이 변경되었습니다.',
+      );
+      Get.snackbar('알림', '단장이 ${newHostNickname}님으로 변경되었습니다.');
+    } catch (e) {
+      debugPrint('Error changing host: $e');
+      Get.snackbar('오류', '단장 변경 중 문제가 발생했습니다.');
+    }
   }
 
   void _scrollToBottom() {
@@ -174,7 +258,7 @@ class MeetupChatController extends GetxController {
 
     try {
       await _chatRepository.sendMessage(postId, message);
-      
+
       // Notify Chat Participants
       _notifyChatParticipants(content);
 
@@ -206,7 +290,10 @@ class MeetupChatController extends GetxController {
     if (_currentUid == null) return;
     try {
       if (source == ImageSource.gallery) {
-        final pickedFiles = await _picker.pickMultiImage(imageQuality: 70, limit: 5);
+        final pickedFiles = await _picker.pickMultiImage(
+          imageQuality: 70,
+          limit: 5,
+        );
         if (pickedFiles.isEmpty) return;
         if (pickedFiles.length > 5) {
           CustomCenterToast.show('최대 5장까지 선택 가능합니다.');
@@ -220,14 +307,19 @@ class MeetupChatController extends GetxController {
           await _processAndSendSingleImage(File(pickedFiles.first.path));
         } else {
           // 여러 장이면 한 메시지로 묶어서 전송
-          await _processAndSendMultipleImages(pickedFiles.map((f) => File(f.path)).toList());
+          await _processAndSendMultipleImages(
+            pickedFiles.map((f) => File(f.path)).toList(),
+          );
         }
 
         isSubmitting.value = false;
       } else {
-        final pickedFile = await _picker.pickImage(source: source, imageQuality: 70);
+        final pickedFile = await _picker.pickImage(
+          source: source,
+          imageQuality: 70,
+        );
         if (pickedFile == null) return;
-        
+
         isSubmitting.value = true;
         await _processAndSendSingleImage(File(pickedFile.path));
         isSubmitting.value = false;
@@ -241,7 +333,11 @@ class MeetupChatController extends GetxController {
 
   Future<void> _processAndSendSingleImage(File file) async {
     try {
-      final imageUrl = await _chatRepository.uploadImage(postId, _currentUid!, file);
+      final imageUrl = await _chatRepository.uploadImage(
+        postId,
+        _currentUid!,
+        file,
+      );
 
       final msgId = _chatRepository.getNewMessageId(postId);
       final message = ChatMessage(
@@ -274,7 +370,11 @@ class MeetupChatController extends GetxController {
     try {
       final List<String> uploadedUrls = [];
       for (final file in files) {
-        final imageUrl = await _chatRepository.uploadImage(postId, _currentUid!, file);
+        final imageUrl = await _chatRepository.uploadImage(
+          postId,
+          _currentUid!,
+          file,
+        );
         uploadedUrls.add(imageUrl);
       }
 
@@ -332,48 +432,74 @@ class MeetupChatController extends GetxController {
   /// Leave chat room — works for both author and participants
   Future<void> leaveChatRoom() async {
     if (_currentUid == null || isLeaving.value) return;
-    
+
     isLeaving.value = true;
     try {
       final postRef = _firestore.collection('community_posts').doc(postId);
-      final participantRef = postRef.collection('participants').doc(_currentUid!);
+      final participantRef = postRef
+          .collection('participants')
+          .doc(_currentUid!);
 
       // First, check current participant count OUTSIDE the transaction
-      final participantsSnapshot = await postRef.collection('participants').get();
+      final participantsSnapshot = await postRef
+          .collection('participants')
+          .get();
       final actualCount = participantsSnapshot.docs.length;
       final shouldDeletePost = actualCount <= 1;
+
+      if (!shouldDeletePost && _currentNickname != null) {
+        await _chatRepository.sendSystemMessage(
+          postId,
+          '${_currentNickname}님이 나갔습니다.',
+        );
+      }
 
       // Remove self from participants
       final participantDoc = await participantRef.get();
       if (participantDoc.exists) {
         await participantRef.delete();
-        
+
         // Remove from joined_chats
         if (_currentUid != null) {
           try {
-            await FirebaseFirestore.instance.collection('users').doc(_currentUid).collection('joined_chats').doc(postId).delete();
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(_currentUid)
+                .collection('joined_chats')
+                .doc(postId)
+                .delete();
           } catch (_) {}
         }
 
         // Update participant count (only if not deleting)
         if (!shouldDeletePost) {
           try {
-            await postRef.update({'currentParticipantCount': FieldValue.increment(-1)});
+            await postRef.update({
+              'currentParticipantCount': FieldValue.increment(-1),
+            });
           } catch (_) {}
         }
       }
-      
-      // If last participant, delete the entire post and subcollections
-      if (shouldDeletePost) {
-        await _deletePostAndSubcollections(postRef);
+
+      // If is host and not deleting, transfer host to someone else
+      if (isHost && !shouldDeletePost) {
+        final remainingParticipants = participantsSnapshot.docs
+            .where((p) => p.id != _currentUid)
+            .toList();
+        if (remainingParticipants.isNotEmpty) {
+          await CommunityRepositoryImpl().changeHost(
+            postId,
+            remainingParticipants.first.id,
+          );
+        }
       }
-      
+
       // Refresh badge in CommunityController
       if (Get.isRegistered<CommunityController>()) {
         Get.find<CommunityController>().cancelUnreadSubscription(postId);
         Get.find<CommunityController>().refreshMyMeetupPostIds();
       }
-      
+
       // Navigate: if post deleted, go all the way back; otherwise just pop dialog and chat page (2 routes)
       if (shouldDeletePost) {
         Get.until((route) => route.isFirst);
@@ -394,7 +520,12 @@ class MeetupChatController extends GetxController {
       final snap = await postRef.collection('participants').get();
       for (var doc in snap.docs) {
         try {
-          await FirebaseFirestore.instance.collection('users').doc(doc.id).collection('joined_chats').doc(postRef.id).delete();
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(doc.id)
+              .collection('joined_chats')
+              .doc(postRef.id)
+              .delete();
         } catch (_) {}
       }
     } catch (e) {
@@ -414,13 +545,13 @@ class MeetupChatController extends GetxController {
         debugPrint('Warning: Could not delete subcollection $name: $e');
       }
     }
-    
+
     // Delete all known subcollections
     await safeDeleteCollection('comments');
     await safeDeleteCollection('participants');
     await safeDeleteCollection('chat');
     await safeDeleteCollection('chat_read');
-    
+
     // Delete the post document itself
     try {
       await postRef.delete();
@@ -441,7 +572,10 @@ class MeetupChatController extends GetxController {
   }
 
   Future<void> changeChatRoomImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
     if (pickedFile == null) return;
 
     final croppedFile = await _cropImage(File(pickedFile.path));
@@ -454,7 +588,7 @@ class MeetupChatController extends GetxController {
           .ref()
           .child('chat_room_images')
           .child(fileName);
-      
+
       await ref.putFile(File(croppedFile.path));
       final String downloadUrl = await ref.getDownloadURL();
 
@@ -504,9 +638,9 @@ class MeetupChatController extends GetxController {
           .doc(postId)
           .collection('participants')
           .get();
-      
+
       final participantUids = participantsSnap.docs.map((d) => d.id).toList();
-      
+
       final List<String> mutedUids = [];
       // Meetups are small (usually < 20), so manual loop is okay for now
       for (final uid in participantUids) {
@@ -519,6 +653,7 @@ class MeetupChatController extends GetxController {
         participantUids: participantUids,
         senderNickname: _currentNickname ?? '알 수 없음',
         message: content,
+        postId: postId,
         currentUid: _currentUid!,
         mutedUids: mutedUids,
       );

@@ -20,6 +20,9 @@ import 'features/main_screen.dart';
 import 'core/app_colors.dart';
 import 'core/network_controller.dart';
 import 'features/auth/onboarding_page.dart';
+import 'features/community/post_detail_page.dart';
+import 'features/community/meetup_chat_page.dart';
+import 'data/repositories/community_repository_impl.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -42,6 +45,18 @@ void main() async {
   await FcmService.init();
   await LocalNotificationService.init();
   debugPrint('🔔 FCM & Local Notif Initialized!');
+
+  // 알림 클릭 핸들러
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    _handleNotificationClick(message);
+  });
+
+  // 앱이 완전히 꺼진 상태에서 알림 클릭
+  FirebaseMessaging.instance.getInitialMessage().then((message) {
+    if (message != null) {
+      _handleNotificationClick(message);
+    }
+  });
 
   await initializeDateFormatting('ko');
 
@@ -191,5 +206,34 @@ class PawprintApp extends StatelessWidget {
           : const LoginPage(),
     );
   }
+}
+
+void _handleNotificationClick(RemoteMessage message) {
+  final data = message.data;
+  final type = data['type'];
+  final postId = data['postId'];
+
+  if (postId == null) return;
+
+  Future.delayed(const Duration(milliseconds: 500), () async {
+    if (type == 'chat' || type == 'meetup') {
+      // 채팅방으로 이동
+      final repo = CommunityRepositoryImpl();
+      final post = await repo.getPostById(postId);
+      if (post != null) {
+        Get.to(() => MeetupChatPage(
+          postId: postId,
+          postTitle: post.title,
+        ));
+      }
+    } else if (type == 'comment' || type == 'reply') {
+      // 게시글로 이동
+      final repo = CommunityRepositoryImpl();
+      final post = await repo.getPostById(postId);
+      if (post != null) {
+        Get.to(() => PostDetailPage(post: post));
+      }
+    }
+  });
 }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../domain/entities/community_post.dart';
 
-/// 신고(실종/임시보호) 게시글에 공통으로 필요한 펫 정보 필드 모음.
+/// 제보(실종/임시보호) 게시글에 공통으로 필요한 펫 정보 필드 모음.
 ///
 /// 사용 방법:
 /// ```dart

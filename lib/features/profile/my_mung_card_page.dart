@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -30,7 +31,7 @@ class MyMungCardPage extends StatelessWidget {
           },
         ),
         title: const Text(
-          "내 멍카",
+          "내 단추 카드",
           style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -311,7 +312,7 @@ class MyMungCardPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  "새 멍카 추가",
+                  "새 단카 추가",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -337,8 +338,8 @@ class MyMungCardPage extends StatelessWidget {
   void _showDeleteConfirm(int index) {
     final dog = controller.dogs[index];
     Get.defaultDialog(
-      title: "멍카 삭제",
-      middleText: "${dog.dogName}의 멍카를 삭제하시겠습니까?",
+      title: "단카 삭제",
+      middleText: "${dog.dogName}의 단카를 삭제하시겠습니까?",
       textConfirm: "삭제",
       textCancel: "취소",
       confirmTextColor: AppColors.white,
@@ -652,6 +653,7 @@ class MyMungCardPage extends StatelessWidget {
 
   void _showBreedSearchSheet() {
     List<String> filteredBreeds = List.from(CommunityConstants.dogBreeds);
+    Timer? debounce;
 
     Get.bottomSheet(
       StatefulBuilder(
@@ -680,23 +682,50 @@ class MyMungCardPage extends StatelessWidget {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   onChanged: (value) {
-                    setModalState(() {
-                      final query = value.trim();
-                      if (query.isNotEmpty) {
-                        filteredBreeds = CommunityConstants.dogBreeds
-                            .where((breed) => breed.contains(query))
-                            .toList();
-                      } else {
-                        filteredBreeds = List.from(CommunityConstants.dogBreeds);
-                      }
+                    debounce?.cancel();
+                    debounce = Timer(const Duration(milliseconds: 250), () {
+                      setModalState(() {
+                        final query = value.trim().toLowerCase();
+                        if (query.isNotEmpty) {
+                          filteredBreeds = CommunityConstants.dogBreeds
+                              .where((breed) => breed.toLowerCase().contains(query))
+                              .toList();
+                        } else {
+                          filteredBreeds = List.from(CommunityConstants.dogBreeds);
+                        }
+                      });
                     });
                   },
                 ),
                 const SizedBox(height: 16),
                 Expanded(
                   child: filteredBreeds.isEmpty
-                      ? const Center(
-                          child: Text('검색 결과가 없습니다.', style: TextStyle(color: Colors.grey)),
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              '검색 결과가 없어요.\n아래 "기타"를 선택하실 수 있습니다.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 16),
+                            ListTile(
+                              title: const Center(
+                                child: Text(
+                                  '기타',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                    decorationThickness: 1.5,
+                                  ),
+                                ),
+                              ),
+                              onTap: () {
+                                controller.dogBreedController.text = '기타';
+                                Get.back();
+                              },
+                            ),
+                          ],
                         )
                       : ListView.builder(
                           itemCount: filteredBreeds.length,
@@ -718,6 +747,6 @@ class MyMungCardPage extends StatelessWidget {
         },
       ),
       isScrollControlled: true,
-    );
+    ).then((_) => debounce?.cancel()); // 바텀시트 닫힐 때 타이머 정리
   }
 }

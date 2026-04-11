@@ -220,7 +220,7 @@ class ProfileController extends GetxController {
         _updateLegacyDogFields(uid, savedDog, imageUrl);
       }
 
-      showCenterToast("멍카 저장 완료!");
+      showCenterToast("단카 저장 완료!");
     } catch (e) {
       debugPrint('⚠️ Error saving dog profile: $e');
       Get.snackbar('잠깐!', '강아지 정보 저장에 실패했어요. 다시 시도해주세요 🐾');
@@ -275,7 +275,7 @@ class ProfileController extends GetxController {
         currentDogIndex.value = dogs.length - 1;
       }
 
-      Get.snackbar("삭제 완료", "${dog.dogName}의 멍카가 삭제되었습니다.");
+      Get.snackbar("삭제 완료", "${dog.dogName}의 단카가 삭제되었습니다.");
     } catch (e) {
       debugPrint('⚠️ Error deleting dog profile: $e');
       Get.snackbar('잠깐!', '강아지 정보 삭제에 실패했어요. 다시 시도해주세요 🐾');
@@ -311,7 +311,7 @@ class ProfileController extends GetxController {
       }
     } catch (e) {
       debugPrint('⚠️ Failed to save profile: $e');
-      Get.snackbar('잠깐!', '프로필 저장에 실패했어요. 다시 시도해주세요 🐾');
+      Get.snackbar('잠깐!', '내 정보 저장에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }
@@ -329,10 +329,10 @@ class ProfileController extends GetxController {
       isEditing.value = false;
       pickedImage.value = null;
       isLoading.value = false;
-      showCenterToast("프로필 저장 완료!");
+      showCenterToast("내 정보 저장 완료!");
     }).catchError((e) {
        debugPrint('⚠️ Error in saveProfileUpdate: $e');
-       Get.snackbar('잠깐!', '프로필 저장에 실패했어요. 다시 시도해주세요 🐾');
+       Get.snackbar('잠깐!', '내 정보 저장에 실패했어요. 다시 시도해주세요 🐾');
        isLoading.value = false;
     });
   }
@@ -388,10 +388,10 @@ class ProfileController extends GetxController {
       
       pickedImage.value = null;
       Get.back(); // Go back from edit page
-      showCenterToast("프로필 수정 완료!");
+      showCenterToast("내 정보 수정 완료!");
     } catch (e) {
       debugPrint('⚠️ Error updating user basic info: $e');
-      Get.snackbar('잠깐!', '프로필 수정에 실패했어요. 다시 시도해주세요 🐾');
+      Get.snackbar('잠깐!', '내 정보 수정에 실패했어요. 다시 시도해주세요 🐾');
     } finally {
       isLoading.value = false;
     }

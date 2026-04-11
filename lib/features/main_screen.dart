@@ -145,10 +145,13 @@ class _MainScreenState extends State<MainScreen> {
                 const NavigationDestination(
                   icon: Icon(Icons.history_outlined),
                   selectedIcon: Icon(Icons.history),
-                  label: '기록',
+                  label: '산책 달력',
                 ),
                 NavigationDestination(
                   icon: Obx(() {
+                    if (!Get.isRegistered<CommunityController>()) {
+                      return const Icon(Icons.forum_outlined);
+                    }
                     final controller = Get.find<CommunityController>();
                     final count = controller.totalUnreadCount.value;
                     return Badge(
@@ -158,6 +161,9 @@ class _MainScreenState extends State<MainScreen> {
                     );
                   }),
                   selectedIcon: Obx(() {
+                    if (!Get.isRegistered<CommunityController>()) {
+                      return const Icon(Icons.forum);
+                    }
                     final controller = Get.find<CommunityController>();
                     final count = controller.totalUnreadCount.value;
                     return Badge(

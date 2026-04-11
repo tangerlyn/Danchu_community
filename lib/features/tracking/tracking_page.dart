@@ -1,11 +1,11 @@
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:pawprint_app/core/app_colors.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'summary_page.dart';
-import '../../utils/mock_location_service.dart';
 
 import 'package:flutter_compass/flutter_compass.dart';
 
@@ -35,7 +35,6 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
 
   // Reporting State
   final bool _isReportingMode = false;
-  bool _isSimulationMode = false; // Simulation Toggle
   
   // UI Constants
   // 1. 바깥 글로우 선 (연한 색, 두껍게)
@@ -64,6 +63,19 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initWithPermission();
+  }
+
+  Future<void> _initWithPermission() async {
+    final granted = await _requestLocationPermission();
+    if (!mounted) return;
+
+    if (!granted) {
+      // 권한 없으면 산책 페이지 닫고 홈으로 돌아가기
+      Navigator.of(context).pop();
+      return;
+    }
+
     _startTracking();
     _startCompass();
     _moveToCurrentLocation();
@@ -81,7 +93,20 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
       
       setState(() => _isTracking = true);
       
-      _moveCameraToPosition(NLatLng(pos.latitude, pos.longitude));
+      if (_mapController == null) return;
+      
+      final update = NCameraUpdate.withParams(
+        target: NLatLng(pos.latitude, pos.longitude),
+        zoom: 17,
+        bearing: _currentHeading, // 나침반 방향으로 정렬해서 화살표가 위를 향하게
+        tilt: 0,
+      );
+      update.setAnimation(
+        animation: NCameraAnimation.easing,
+        duration: const Duration(milliseconds: 1000),
+      );
+      _mapController!.updateCamera(update);
+      _isInitialCamMoved = true;
     } catch (e) {
       debugPrint("Initial loc failed: $e");
     }
@@ -143,6 +168,96 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
     } 
   }
 
+  Future<bool> _requestLocationPermission() async {
+    // 1. 위치 서비스 켜져 있는지 확인
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("위치 서비스를 켜주세요")),
+        );
+      }
+      return false;
+    }
+
+    // 2. 권한 상태 확인
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("위치 권한이 필요합니다")),
+          );
+        }
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("위치 권한 필요"),
+            content: const Text("백그라운드에서도 산책 경로를 기록하려면 '항상 허용' 권한이 필요해요. 설정에서 위치 권한을 변경해주세요."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("취소"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Geolocator.openAppSettings();
+                },
+                child: const Text("설정 열기"),
+              ),
+            ],
+          ),
+        );
+      }
+      return false;
+    }
+
+    // 3. "사용 중에만" 권한이면 "항상" 권한으로 업그레이드 안내
+    if (permission == LocationPermission.whileInUse) {
+      if (mounted) {
+        final shouldUpgrade = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false, // 바깥 탭으로 닫지 못하게
+          builder: (ctx) => AlertDialog(
+            title: const Text("백그라운드 추적 권한"),
+            content: const Text("앱이 백그라운드에 있을 때도 산책 경로를 끊김 없이 기록하려면 '항상 허용' 권한이 필요해요.\n\n설정 앱에서 위치 권한을 '항상'으로 변경해주세요."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("나중에"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("설정 열기"),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldUpgrade == true) {
+          await Geolocator.openAppSettings();
+          // 설정에서 돌아와도 다시 권한 확인이 필요하므로 false 반환 → 사용자가 다시 산책 시작
+          return false;
+        } else {
+          // "나중에"를 선택하면 산책 불가
+          return false;
+        }
+      }
+      return false;
+    }
+
+    return permission == LocationPermission.always;
+  }
+
   void _startTracking() async {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -153,50 +268,62 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
 
     _positionStream?.cancel();
 
-    if (_isSimulationMode) {
-      // Get current location to start simulation from
-      Position startPos;
-      try {
-        startPos = await Geolocator.getCurrentPosition();
-      } catch (e) {
-        // Fallback if no location
-        startPos = Position(
-          latitude: 37.5665, longitude: 126.9780, 
-          timestamp: DateTime.now(), accuracy: 0, altitude: 0, heading: 0, speed: 0, speedAccuracy: 0, altitudeAccuracy: 0, headingAccuracy: 0, isMocked: true
-        );
-      }
-      
-      _positionStream = MockLocationService.getMockPositionStream(
-        startLat: startPos.latitude, 
-        startLng: startPos.longitude
-      ).listen((Position position) {
-        _updateLocation(position);
-      });
-      
-    } else {
-      LocationSettings locationSettings = const LocationSettings(
-        accuracy: LocationAccuracy.high, 
-        distanceFilter: 5, 
-      );
+    late LocationSettings locationSettings;
 
-      _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
-          .listen((Position position) {
-        _updateLocation(position);
-      });
+    if (Platform.isIOS) {
+      locationSettings = AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 8,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else if (Platform.isAndroid) {
+      locationSettings = AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 8,
+        forceLocationManager: false,
+        intervalDuration: const Duration(seconds: 3),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "산책 경로를 기록하고 있어요 🐾",
+          notificationTitle: "단추 산책 중",
+          enableWakeLock: true,
+          notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+        ),
+      );
+    } else {
+      locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 8,
+      );
     }
+
+    _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+        .listen((Position position) {
+      _updateLocation(position);
+    });
   }
 
   void _updateLocation(Position position) async {
+    // GPS 정확도 필터: 40m보다 부정확한 점은 버림
+    if (position.accuracy > 40) {
+      debugPrint("🚫 GPS 정확도 낮음 (${position.accuracy.toStringAsFixed(1)}m), 무시");
+      return;
+    }
 
     setState(() {
       final newPoint = NLatLng(position.latitude, position.longitude);
       
       if (_pathPoints.isNotEmpty) {
         final lastPoint = _pathPoints.last;
-        _distanceMeters += Geolocator.distanceBetween(
+        final dist = Geolocator.distanceBetween(
           lastPoint.latitude, lastPoint.longitude,
           newPoint.latitude, newPoint.longitude
         );
+        // 3m 미만이거나 100m 초과면 GPS 튐으로 간주하고 무시
+        if (dist < 3 || dist > 100) return;
+        _distanceMeters += dist;
       }
 
       _pathPoints.add(newPoint);
@@ -361,35 +488,6 @@ class _TrackingPageState extends State<TrackingPage> with WidgetsBindingObserver
               foregroundColor: AppColors.deepBrown,
               onPressed: _moveToCurrentLocation,
               child: const Icon(Icons.my_location),
-            ),
-          ),
-          
-          // Simulation Toggle (Test Feature)
-          Positioned(
-            bottom: bottomPadding + 170, 
-            right: 20,
-            child: Column(
-              children: [
-                FloatingActionButton.small(
-                  heroTag: "sim_toggle",
-                  backgroundColor: _isSimulationMode ? AppColors.latte : AppColors.white,
-                  foregroundColor: _isSimulationMode ? AppColors.white : AppColors.deepBrown,
-                  onPressed: () {
-                    setState(() {
-                      _isSimulationMode = !_isSimulationMode;
-                    });
-                     // Restart tracking with new mode
-                     _startTracking();
-                     
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       SnackBar(content: Text(_isSimulationMode ? "Simulation ON (Square Walk)" : "Simulation OFF (Real GPS)"))
-                     );
-                  },
-                  child: const Icon(Icons.directions_walk),
-                ),
-                const SizedBox(height: 4),
-                const Text("TEST", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.white, shadows: [Shadow(color: AppColors.deepBrown, blurRadius: 2)])),
-              ],
             ),
           ),
           

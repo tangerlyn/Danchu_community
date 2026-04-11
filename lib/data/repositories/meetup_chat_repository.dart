@@ -10,15 +10,18 @@ class MeetupChatRepository {
   final FirebaseStorage _storage;
 
   MeetupChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _storage = storage ?? FirebaseStorage.instance;
 
   Future<String> uploadImage(String postId, String uid, File file) async {
     try {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.jpg';
       final storageRef = _storage.ref().child('chat_images/$postId/$fileName');
-      
-      final uploadTask = await storageRef.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+
+      final uploadTask = await storageRef.putFile(
+        file,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       return await uploadTask.ref.getDownloadURL();
     } catch (e) {
       debugPrint('⚠️ uploadImage error: $e');
@@ -27,11 +30,18 @@ class MeetupChatRepository {
   }
 
   CollectionReference _chatCollection(String postId) {
-    return _firestore.collection('community_posts').doc(postId).collection('chat');
+    return _firestore
+        .collection('community_posts')
+        .doc(postId)
+        .collection('chat');
   }
 
   DocumentReference _chatReadDoc(String postId, String uid) {
-    return _firestore.collection('community_posts').doc(postId).collection('chat_read').doc(uid);
+    return _firestore
+        .collection('community_posts')
+        .doc(postId)
+        .collection('chat_read')
+        .doc(uid);
   }
 
   /// Send a chat message
@@ -44,24 +54,50 @@ class MeetupChatRepository {
     }
   }
 
+  Future<void> sendSystemMessage(String postId, String message) async {
+    final msgId = _chatCollection(postId).doc().id;
+    await _chatCollection(postId).doc(msgId).set({
+      'senderUid': 'system',
+      'senderNickname': 'system',
+      'message': message,
+      'type': 'system',
+      'createdAt': FieldValue.serverTimestamp(),
+      'readBy': [],
+      'imageUrls': [],
+    });
+  }
+
   /// Get new document ID for chat message
   String getNewMessageId(String postId) {
     return _chatCollection(postId).doc().id;
   }
 
   /// Stream chat messages (oldest first for chat display)
-  Stream<List<ChatMessage>> getMessagesStream(String postId, {DateTime? joinedAt}) {
-    Query query = _chatCollection(postId).orderBy('createdAt', descending: false);
-    
+  Stream<List<ChatMessage>> getMessagesStream(
+    String postId, {
+    DateTime? joinedAt,
+  }) {
+    Query query = _chatCollection(
+      postId,
+    ).orderBy('createdAt', descending: false);
+
     if (joinedAt != null) {
-      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(joinedAt));
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(joinedAt),
+      );
     }
-    
-    return query
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ChatMessage.fromJson(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+
+    return query.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map(
+            (doc) => ChatMessage.fromJson(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// Update the last read timestamp for a user in a chat room
@@ -72,10 +108,9 @@ class MeetupChatRepository {
       }, SetOptions(merge: true));
 
       // Batch update readBy for up to 100 recent messages
-      final recentMessages = await _chatCollection(postId)
-          .orderBy('createdAt', descending: true)
-          .limit(100)
-          .get();
+      final recentMessages = await _chatCollection(
+        postId,
+      ).orderBy('createdAt', descending: true).limit(100).get();
 
       final batch = _firestore.batch();
       int updateCount = 0;
@@ -87,7 +122,7 @@ class MeetupChatRepository {
 
         if (senderUid != uid && !readBy.contains(uid)) {
           batch.update(doc.reference, {
-            'readBy': FieldValue.arrayUnion([uid])
+            'readBy': FieldValue.arrayUnion([uid]),
           });
           updateCount++;
         }
@@ -95,7 +130,9 @@ class MeetupChatRepository {
 
       if (updateCount > 0) {
         await batch.commit();
-        debugPrint('👁️ Batch updated $updateCount messages read receipts for $uid');
+        debugPrint(
+          '👁️ Batch updated $updateCount messages read receipts for $uid',
+        );
       }
     } catch (e) {
       debugPrint('⚠️ updateLastReadAt error: $e');
@@ -143,12 +180,17 @@ class MeetupChatRepository {
       final lastReadAt = await getLastReadAt(postId, uid);
       Query query = _chatCollection(postId);
       if (lastReadAt != null) {
-        query = query.where('createdAt', isGreaterThan: Timestamp.fromDate(lastReadAt));
+        query = query.where(
+          'createdAt',
+          isGreaterThan: Timestamp.fromDate(lastReadAt),
+        );
       }
       // Exclude own messages
       final snapshot = await query.get();
       return snapshot.docs
-          .where((doc) => (doc.data() as Map<String, dynamic>)['senderUid'] != uid)
+          .where(
+            (doc) => (doc.data() as Map<String, dynamic>)['senderUid'] != uid,
+          )
           .length;
     } catch (e) {
       debugPrint('⚠️ getUnreadCount error: $e');
@@ -159,7 +201,9 @@ class MeetupChatRepository {
   /// Stream real-time number of unread messages for a user in a chat room
   Stream<int> getUnreadCountStream(String postId, String uid) {
     // A stream that yields the baseline `lastReadAt` (or `joinedAt` if null).
-    final baselineStream = _chatReadDoc(postId, uid).snapshots().asyncMap((snapshot) async {
+    final baselineStream = _chatReadDoc(postId, uid).snapshots().asyncMap((
+      snapshot,
+    ) async {
       DateTime? baseline;
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>?;
@@ -168,7 +212,7 @@ class MeetupChatRepository {
         }
       }
       if (baseline != null) return baseline;
-      
+
       // Fallback: if they never read it, use the time they joined
       return await getParticipantJoinedAt(postId, uid);
     });
@@ -178,11 +222,16 @@ class MeetupChatRepository {
     return baselineStream.switchMap((baseline) {
       Query query = _chatCollection(postId);
       if (baseline != null) {
-        query = query.where('createdAt', isGreaterThan: Timestamp.fromDate(baseline));
+        query = query.where(
+          'createdAt',
+          isGreaterThan: Timestamp.fromDate(baseline),
+        );
       }
       return query.snapshots().map((snapshot) {
         return snapshot.docs
-            .where((doc) => (doc.data() as Map<String, dynamic>)['senderUid'] != uid)
+            .where(
+              (doc) => (doc.data() as Map<String, dynamic>)['senderUid'] != uid,
+            )
             .length;
       });
     });
@@ -191,10 +240,9 @@ class MeetupChatRepository {
   /// Get the last message in a chat room
   Future<ChatMessage?> getLastMessage(String postId) async {
     try {
-      final snapshot = await _chatCollection(postId)
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .get();
+      final snapshot = await _chatCollection(
+        postId,
+      ).orderBy('createdAt', descending: true).limit(1).get();
       if (snapshot.docs.isNotEmpty) {
         final doc = snapshot.docs.first;
         return ChatMessage.fromJson(doc.data() as Map<String, dynamic>, doc.id);
@@ -207,11 +255,11 @@ class MeetupChatRepository {
 
   /// Stream the last message for real-time updates in chat list
   Stream<ChatMessage?> getLastMessageStream(String postId) {
-    return _chatCollection(postId)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) {
+    return _chatCollection(
+      postId,
+    ).orderBy('createdAt', descending: true).limit(1).snapshots().map((
+      snapshot,
+    ) {
       if (snapshot.docs.isNotEmpty) {
         final doc = snapshot.docs.first;
         return ChatMessage.fromJson(doc.data() as Map<String, dynamic>, doc.id);
@@ -224,8 +272,10 @@ class MeetupChatRepository {
   Future<bool> getChatMuted(String postId, String uid) async {
     try {
       final doc = await _firestore
-          .collection('users').doc(uid)
-          .collection('notification_settings').doc(postId)
+          .collection('users')
+          .doc(uid)
+          .collection('notification_settings')
+          .doc(postId)
           .get();
       if (doc.exists) {
         return (doc.data() as Map<String, dynamic>?)?['chatMuted'] ?? false;
@@ -240,12 +290,14 @@ class MeetupChatRepository {
     try {
       final currentMuted = await getChatMuted(postId, uid);
       await _firestore
-          .collection('users').doc(uid)
-          .collection('notification_settings').doc(postId)
+          .collection('users')
+          .doc(uid)
+          .collection('notification_settings')
+          .doc(postId)
           .set({
-        'chatMuted': !currentMuted,
-        'mutedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+            'chatMuted': !currentMuted,
+            'mutedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('⚠️ toggleChatMuted error: $e');
       rethrow;

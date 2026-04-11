@@ -2,6 +2,7 @@ import 'dart:io';
 import '../entities/community_post.dart';
 import '../entities/community_comment.dart';
 import '../entities/comment_reply.dart';
+import '../entities/join_request.dart';
 
 abstract class CommunityRepository {
   /// Fetch all posts ordered by newest
@@ -27,6 +28,7 @@ abstract class CommunityRepository {
 
   /// Update a comment
   Future<void> updateComment(String postId, String commentId, String newContent);
+  Future<void> updateReply(String postId, String commentId, String replyId, String newContent);
 
   /// Get comments stream
   Stream<List<CommunityComment>> getCommentsStream(String postId);
@@ -57,5 +59,20 @@ abstract class CommunityRepository {
 
   /// Delete a reply
   Future<void> deleteReply(String postId, String commentId, String replyId);
+
+  /// Submit a join request
+  Future<void> submitJoinRequest(String postId, String uid, String nickname, String? profileImageUrl, String message);
+
+  /// Get join requests stream (for host)
+  Stream<List<JoinRequest>> getJoinRequestsStream(String postId);
+
+  /// Accept a join request
+  Future<void> acceptJoinRequest(String postId, String requestId, String applicantUid);
+
+  /// Reject a join request
+  Future<void> rejectJoinRequest(String postId, String requestId);
+
+  /// Change host of a meetup
+  Future<void> changeHost(String postId, String newHostUid);
 }
 

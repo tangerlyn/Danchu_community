@@ -2,6 +2,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:get/get.dart';
+import '../features/main_screen.dart';
 
 class LocalNotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -25,6 +27,10 @@ class LocalNotificationService {
 
     await _plugin.initialize(
       const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // 알림 탭했을 때 산책 기록 탭(1번)으로 이동
+        Get.offAll(() => MainScreen(initialIndex: 1));
+      },
     );
 
     // Request permissions for iOS

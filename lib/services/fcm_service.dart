@@ -1,16 +1,10 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 class FcmService {
-  // 나중에 서비스 계정 액세스 토큰으로 교체할 자리
-  static const _projectId = 'paws-5bd5b';
-  // ignore: unused_field
-  static const _fcmUrl = 'https://fcm.googleapis.com/v1/projects/$_projectId/messages:send';
-
-  // TODO: Apple Developer 가입 후 서비스 계정 키 설정 필요
-  // 현재는 토큰 전송 비활성화 상태
-  static const bool _isEnabled = false;
+  static final _functions = FirebaseFunctions.instance;
 
   static Future<void> init() async {
     try {
@@ -35,7 +29,7 @@ class FcmService {
             .update({'fcmToken': token});
         debugPrint('✅ [FcmService] Token saved for $uid');
       }
-      
+
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         FirebaseFirestore.instance
             .collection('users').doc(uid)
@@ -47,22 +41,13 @@ class FcmService {
     }
   }
 
-  static Future<String?> _getToken(String uid) async {
+  static Future<void> _call(String functionName, Map<String, dynamic> params) async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users').doc(uid).get();
-      return doc.data()?['fcmToken'] as String?;
+      await _functions.httpsCallable(functionName).call(params);
+      debugPrint('🚀 [FcmService] Called $functionName with $params');
     } catch (e) {
-      debugPrint('⚠️ [FcmService] Failed to fetch token for $uid: $e');
-      return null;
+      debugPrint('⚠️ [FcmService] $functionName failed: $e');
     }
-  }
-
-  // ignore: unused_element
-  static Future<void> _send(String token, String title, String body) async {
-    if (!_isEnabled) return; // APNs 설정 전까지 비활성화
-    // TODO: 서비스 계정 OAuth2 토큰 발급 후 실제 전송 로직 활성화
-    debugPrint('🚀 [FcmService] Sending to $token: $title - $body');
   }
 
   // 1. 내 게시글에 댓글
@@ -70,38 +55,47 @@ class FcmService {
     required String postAuthorUid,
     required String commenterNickname,
     required String postTitle,
+    required String postId,
     required String currentUid,
   }) async {
     if (postAuthorUid == currentUid) return;
-    final token = await _getToken(postAuthorUid);
-    if (token == null) return;
-    await _send(token, '새 댓글', '$commenterNickname님이 "$postTitle"에 댓글을 달았습니다.');
+    await _call('sendCommentNotification', {
+      'postAuthorUid': postAuthorUid,
+      'commenterNickname': commenterNickname,
+      'postTitle': postTitle,
+      'postId': postId,
+    });
   }
 
   // 2. 내 댓글에 답글
   static Future<void> sendReplyNotification({
     required String commentAuthorUid,
     required String replierNickname,
+    required String postId,
     required String currentUid,
   }) async {
     if (commentAuthorUid == currentUid) return;
-    final token = await _getToken(commentAuthorUid);
-    if (token == null) return;
-    await _send(token, '새 답글', '$replierNickname님이 내 댓글에 답글을 남겼습니다.');
+    await _call('sendReplyNotification', {
+      'commentAuthorUid': commentAuthorUid,
+      'replierNickname': replierNickname,
+      'postId': postId,
+    });
   }
 
   // 3. 같은 댓글 스레드에 답글
   static Future<void> sendThreadReplyNotification({
     required List<String> notifyUids,
     required String replierNickname,
+    required String postId,
     required String currentUid,
   }) async {
-    for (final uid in notifyUids) {
-      if (uid == currentUid) continue; // Skip self
-      final token = await _getToken(uid);
-      if (token == null) continue;
-      await _send(token, '새 답글', '$replierNickname님이 같은 댓글에 답글을 남겼습니다.');
-    }
+    final uids = notifyUids.where((uid) => uid != currentUid).toList();
+    if (uids.isEmpty) return;
+    await _call('sendThreadReplyNotification', {
+      'notifyUids': uids,
+      'replierNickname': replierNickname,
+      'postId': postId,
+    });
   }
 
   // 4. 내 모임에 참여
@@ -109,12 +103,16 @@ class FcmService {
     required String postAuthorUid,
     required String joinerNickname,
     required String postTitle,
+    required String postId,
     required String currentUid,
   }) async {
     if (postAuthorUid == currentUid) return;
-    final token = await _getToken(postAuthorUid);
-    if (token == null) return;
-    await _send(token, '모임 참여', '$joinerNickname님이 "$postTitle"에 참여했습니다.');
+    await _call('sendMeetupJoinNotification', {
+      'postAuthorUid': postAuthorUid,
+      'joinerNickname': joinerNickname,
+      'postTitle': postTitle,
+      'postId': postId,
+    });
   }
 
   // 5. 채팅 알림
@@ -122,15 +120,31 @@ class FcmService {
     required List<String> participantUids,
     required String senderNickname,
     required String message,
+    required String postId,
     required String currentUid,
     required List<String> mutedUids,
   }) async {
-    for (final uid in participantUids) {
-      if (uid == currentUid) continue;
-      if (mutedUids.contains(uid)) continue;
-      final token = await _getToken(uid);
-      if (token == null) continue;
-      await _send(token, senderNickname, message);
-    }
+    final uids = participantUids.where((uid) => uid != currentUid).toList();
+    if (uids.isEmpty) return;
+    await _call('sendChatNotification', {
+      'participantUids': uids,
+      'senderNickname': senderNickname,
+      'message': message,
+      'postId': postId,
+      'mutedUids': mutedUids,
+    });
+  }
+
+  // 6. 참가 신청 결과 (승인/거절)
+  static Future<void> sendJoinResultNotification({
+    required String targetUid,
+    required String postId,
+    required bool isAccepted,
+  }) async {
+    await _call('sendJoinResultNotification', {
+      'targetUid': targetUid,
+      'postId': postId,
+      'isAccepted': isAccepted,
+    });
   }
 }

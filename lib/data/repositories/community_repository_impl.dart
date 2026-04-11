@@ -6,6 +6,7 @@ import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import '../../domain/entities/community_post.dart';
 import '../../domain/entities/community_comment.dart';
 import '../../domain/entities/comment_reply.dart';
+import '../../domain/entities/join_request.dart';
 import '../../domain/repositories/community_repository.dart';
 
 class CommunityRepositoryImpl implements CommunityRepository {
@@ -54,7 +55,7 @@ class CommunityRepositoryImpl implements CommunityRepository {
   }) {
     // For report categories, we use a broader query radius (e.g., 50km) 
     // to capture sighting locations that might be far from the author's initial position.
-    final double queryRadius = (mainCategory == '신고') ? 50.0 : radius;
+    final double queryRadius = (mainCategory == '제보') ? 50.0 : radius;
 
     final collectionReference = _firestore.collection(_collectionPath);
     
@@ -258,11 +259,13 @@ class CommunityRepositoryImpl implements CommunityRepository {
         uploadedRefs.add(ref);
       }
 
-      // 2. Create the post object with the new image URLs
+      // 3. Save to Firestore
       final postData = post.toJson();
       postData['imageUrls'] = uploadedImageUrls;
+      if (post.mainCategory == '모임') {
+        postData['hostUid'] = post.authorUid;
+      }
 
-      // 3. Save to Firestore
       await _firestore.collection(_collectionPath).doc(post.id).set(postData);
 
       // 4. If it's a Meetup, automatically add the author as a participant
@@ -308,41 +311,56 @@ class CommunityRepositoryImpl implements CommunityRepository {
 
   @override
   Future<void> deletePost(String postId) async {
-    // Note: Security rules should also enforce that only the author can delete this.
     try {
-      // Get the post to delete images first
+      // 1. 이미지 삭제
       final post = await getPostById(postId);
       if (post != null && post.imageUrls.isNotEmpty) {
-         for (String url in post.imageUrls) {
-           try {
-              final Reference ref = _storage.refFromURL(url);
-              await ref.delete();
-           } catch (e) {
-              print('Failed to delete image: $url. Error: $e');
-           }
-         }
-      }
-
-      // Explicitly delete specific subcollections, preserving `chat`, `chat_read`, and `participants`
-      final collectionsToDelete = ['comments', 'likes'];
-      for (final collectionName in collectionsToDelete) {
-        final collectionRef = _firestore
-            .collection(_collectionPath)
-            .doc(postId)
-            .collection(collectionName);
-        final snapshot = await collectionRef.get();
-        final batch = _firestore.batch();
-        
-        for (final doc in snapshot.docs) {
-          batch.delete(doc.reference);
-        }
-        
-        if (snapshot.docs.isNotEmpty) {
-          await batch.commit();
+        for (String url in post.imageUrls) {
+          try {
+            final Reference ref = _storage.refFromURL(url);
+            await ref.delete();
+          } catch (e) {
+            print('Failed to delete image: $url. Error: $e');
+          }
         }
       }
 
-      // Delete document
+      // 2. comments + replies 삭제
+      final commentsSnapshot = await _firestore
+          .collection(_collectionPath)
+          .doc(postId)
+          .collection('comments')
+          .get();
+
+      for (final commentDoc in commentsSnapshot.docs) {
+        // replies 먼저 삭제
+        final repliesSnapshot = await commentDoc.reference.collection('replies').get();
+        final replyBatch = _firestore.batch();
+        for (final replyDoc in repliesSnapshot.docs) {
+          replyBatch.delete(replyDoc.reference);
+        }
+        if (repliesSnapshot.docs.isNotEmpty) {
+          await replyBatch.commit();
+        }
+        // 댓글 삭제
+        await commentDoc.reference.delete();
+      }
+
+      // 3. likes 삭제
+      final likesSnapshot = await _firestore
+          .collection(_collectionPath)
+          .doc(postId)
+          .collection('likes')
+          .get();
+      final likesBatch = _firestore.batch();
+      for (final doc in likesSnapshot.docs) {
+        likesBatch.delete(doc.reference);
+      }
+      if (likesSnapshot.docs.isNotEmpty) {
+        await likesBatch.commit();
+      }
+
+      // 4. 게시글 본문 삭제
       await _firestore.collection(_collectionPath).doc(postId).delete();
     } catch (e) {
       throw Exception('Failed to delete post: $e');
@@ -762,6 +780,150 @@ class CommunityRepositoryImpl implements CommunityRepository {
           .update({'commentCount': FieldValue.increment(-1)});
     } catch (e) {
       throw Exception('Failed to delete reply: $e');
+    }
+  }
+
+  @override
+  Future<void> submitJoinRequest(String postId, String uid, String nickname, String? profileImageUrl, String message) async {
+    try {
+      await _firestore
+          .collection(_collectionPath)
+          .doc(postId)
+          .collection('join_requests')
+          .doc(uid)
+          .set({
+        'uid': uid,
+        'nickname': nickname,
+        'profileImageUrl': profileImageUrl,
+        'message': message,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to submit join request: $e');
+    }
+  }
+
+  @override
+  Stream<List<JoinRequest>> getJoinRequestsStream(String postId) {
+    return _firestore
+        .collection(_collectionPath)
+        .doc(postId)
+        .collection('join_requests')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => JoinRequest.fromJson(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  @override
+  Future<void> acceptJoinRequest(String postId, String requestId, String applicantUid) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final requestRef = _firestore
+            .collection(_collectionPath)
+            .doc(postId)
+            .collection('join_requests')
+            .doc(requestId);
+        
+        transaction.update(requestRef, {'status': 'accepted'});
+        
+        // After updating status, trigger participation toggle logic
+        // Note: Transaction logic for toggleMeetupParticipation needs to be careful here
+        // Since toggleMeetupParticipation is also a transaction, we can't call it directly inside another transaction.
+        // Instead, we implement the join logic here directly.
+      });
+
+      // Call the existing method to handle participation & counter
+      await toggleMeetupParticipation(postId, applicantUid);
+    } catch (e) {
+      throw Exception('Failed to accept join request: $e');
+    }
+  }
+
+  @override
+  Future<void> rejectJoinRequest(String postId, String requestId) async {
+    try {
+      await _firestore
+          .collection(_collectionPath)
+          .doc(postId)
+          .collection('join_requests')
+          .doc(requestId)
+          .update({'status': 'rejected'});
+    } catch (e) {
+      throw Exception('Failed to reject join request: $e');
+    }
+  }
+
+  @override
+  Future<void> changeHost(String postId, String newHostUid) async {
+    try {
+      await _firestore.collection(_collectionPath).doc(postId).update({
+        'hostUid': newHostUid,
+      });
+    } catch (e) {
+      throw Exception('Failed to change host: $e');
+    }
+  }
+
+  Future<void> transferHostOnDelete(String uid) async {
+    try {
+      // Find all meetups where this user is the host
+      final hittedPosts = await _firestore
+          .collection(_collectionPath)
+          .where('hostUid', isEqualTo: uid)
+          .get();
+
+      for (var doc in hittedPosts.docs) {
+        final postId = doc.id;
+        // Get other participants
+        final participantsSnapshot = await _firestore
+            .collection(_collectionPath)
+            .doc(postId)
+            .collection('participants')
+            .get();
+
+        final otherParticipants = participantsSnapshot.docs
+            .where((p) => p.id != uid)
+            .toList();
+
+        if (otherParticipants.isNotEmpty) {
+          // Assign to the first other participant
+          await changeHost(postId, otherParticipants.first.id);
+        } else {
+          // No other participants, maybe delete post or leave host null
+          // Usually, if host leaves and no one else is there, the post might as well be closed.
+          // For now, let's just clear the hostUid.
+          await _firestore.collection(_collectionPath).doc(postId).update({
+            'hostUid': null,
+          });
+        }
+      }
+    } catch (e) {
+      print('Error transferring host on delete: $e');
+    }
+  }
+
+  @override
+  Future<void> updateReply(String postId, String commentId, String replyId, String newContent) async {
+    try {
+      await _firestore
+          .collection(_collectionPath)
+          .doc(postId)
+          .collection('comments')
+          .doc(commentId)
+          .collection('replies')
+          .doc(replyId)
+          .update({
+            'content': newContent,
+            'isEdited': true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+    } catch (e) {
+      throw Exception('Failed to update reply: $e');
     }
   }
 }

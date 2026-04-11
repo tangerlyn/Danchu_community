@@ -68,7 +68,7 @@ class MungCardWidget extends StatelessWidget {
                       ? CachedNetworkImageProvider(imageUrl)
                       : null,
                   child: imageUrl.isEmpty
-                      ? const Icon(Icons.pets, size: 36, color: AppColors.deepBrown)
+                      ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
                       : null,
                 ),
                ],
@@ -166,7 +166,7 @@ class MungCardWidget extends StatelessWidget {
             Align(
               alignment: Alignment.bottomRight,
               child: Text(
-                'Pawprint MungCard',
+                '단추 카드',
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,

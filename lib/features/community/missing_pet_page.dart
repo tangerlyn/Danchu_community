@@ -49,7 +49,7 @@ class MissingPetPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F5F1),
       appBar: AppBar(
-        title: const Text('실종신고', style: TextStyle(
+        title: const Text('실종제보', style: TextStyle(
           fontWeight: FontWeight.bold,
           color: AppColors.deepBrown,
         )),
@@ -109,7 +109,7 @@ class MissingPetPage extends StatelessWidget {
               if (posts.isEmpty) {
                 return const Center(
                   child: Text(
-                    '해당 상태의 실종신고가 없습니다.',
+                    '해당 상태의 실종제보가 없습니다.',
                     style: TextStyle(color: AppColors.taupe, fontSize: 16),
                   ),
                 );

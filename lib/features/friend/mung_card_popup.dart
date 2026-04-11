@@ -142,7 +142,7 @@ class _MungCardPopupState extends State<MungCardPopup> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            widget.isAlreadyFriend ? "이미 친구입니다" : "멍카 교환하기",
+                            widget.isAlreadyFriend ? "이미 친구입니다" : "단카 교환하기",
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

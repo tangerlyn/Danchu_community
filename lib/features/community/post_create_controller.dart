@@ -44,6 +44,7 @@ class PostCreateController extends GetxController with PetReportMixin {
 
   var selectedMainCategory = '자유'.obs;
   var selectedSubCategory = '전체'.obs;
+  var selectedJoinType = 'free'.obs; // 'free' or 'approval'
 
   var selectedImages = <File>[].obs;
   
@@ -86,7 +87,7 @@ class PostCreateController extends GetxController with PetReportMixin {
       resetPetFields(); // from PetReportMixin
     });
 
-    // Listen to sub category changes (within '신고')
+    // Listen to sub category changes (within '제보')
     ever(selectedSubCategory, (_) => resetPetFields()); // from PetReportMixin
   }
 
@@ -265,7 +266,7 @@ class PostCreateController extends GetxController with PetReportMixin {
     }
 
     // Pet Report Validation
-    if (selectedMainCategory.value == '신고') {
+    if (selectedMainCategory.value == '제보') {
        if (['실종', '임시보호'].contains(selectedSubCategory.value)) {
           if (petNameController.text.trim().isEmpty) {
              Get.snackbar('알림', '이름을 입력해주세요.');
@@ -304,7 +305,7 @@ class PostCreateController extends GetxController with PetReportMixin {
       Map<String, dynamic>? position;
       
       // For reports, we set the primary position to the first sighting location if available (Only for '실종')
-      if (selectedMainCategory.value == '신고' && selectedSubCategory.value == '실종' && incidentLocations.isNotEmpty) {
+      if (selectedMainCategory.value == '제보' && selectedSubCategory.value == '실종' && incidentLocations.isNotEmpty) {
           lat = incidentLocations.first.latitude;
           lng = incidentLocations.first.longitude;
           position = GeoFirePoint(GeoPoint(lat, lng)).data;
@@ -325,7 +326,7 @@ class PostCreateController extends GetxController with PetReportMixin {
 
       // Prepare petInfo
       Map<String, dynamic>? petInfo;
-      if (selectedMainCategory.value == '신고' && ['실종', '임시보호'].contains(selectedSubCategory.value)) {
+      if (selectedMainCategory.value == '제보' && ['실종', '임시보호'].contains(selectedSubCategory.value)) {
          petInfo = {
             'name': petNameController.text.trim(),
             'breed': petBreedController.text.trim(),
@@ -373,6 +374,8 @@ class PostCreateController extends GetxController with PetReportMixin {
         meetingLng: selectedMainCategory.value == '모임' ? selectedMeetingLng.value : null,
         routePoints: _passedRoutePoints,
         walkSummary: _passedWalkSummary,
+        joinType: selectedMainCategory.value == '모임' ? selectedJoinType.value : 'free',
+        hostUid: selectedMainCategory.value == '모임' ? uid : null,
       );
 
       final uploadedUrls = await _communityRepository.createPost(post, selectedImages);

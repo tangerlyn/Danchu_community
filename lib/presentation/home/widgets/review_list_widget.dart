@@ -71,12 +71,17 @@ class _ReviewItemState extends State<_ReviewItem> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.sand.withOpacity(0.5),
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.person, size: 16, color: AppColors.mocha),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/icon/app_icon3.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(

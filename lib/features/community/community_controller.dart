@@ -8,6 +8,7 @@ import '../../domain/entities/community_post.dart';
 import '../../data/repositories/community_repository_impl.dart';
 import '../../data/repositories/meetup_chat_repository.dart';
 import 'community_constants.dart';
+import '../auth/auth_controller.dart';
 
 class CommunityController extends GetxController {
   final CommunityRepositoryImpl _repository = CommunityRepositoryImpl();
@@ -49,10 +50,10 @@ class CommunityController extends GetxController {
   Rx<List<CommunityPost>> posts = Rx<List<CommunityPost>>([]);
   var isPostsLoading = true.obs;
 
-  // Hot posts for each category ('산책', '신고', '자유')
+  // Hot posts for each category ('산책', '제보', '자유')
   final hotPostsMap = <String, Rx<List<CommunityPost>>>{
     '산책': Rx<List<CommunityPost>>([]),
-    '신고': Rx<List<CommunityPost>>([]),
+    '제보': Rx<List<CommunityPost>>([]),
     '자유': Rx<List<CommunityPost>>([]),
   };
 
@@ -80,22 +81,44 @@ class CommunityController extends GetxController {
         showScrollToTop.value = false;
       }
     });
+
+    // 차단 목록이 변경되면 현재 피드를 다시 필터링
+    if (Get.isRegistered<AuthController>()) {
+      final auth = Get.find<AuthController>();
+      ever(auth.blockedUsers, (_) {
+        final currentPosts = posts.value;
+        final refiltered = _filterBlockedUsers(currentPosts);
+        if (refiltered.length != currentPosts.length) {
+          // 차단된 사용자의 글이 있어서 즉시 숨김
+          posts.value = refiltered;
+        } else {
+          // 차단 해제의 경우 스트림 재바인딩으로 데이터 새로 받아오기
+          _bindPostsStream();
+        }
+      });
+    }
   }
 
   @override
   void onClose() {
     _postsSubscription?.cancel();
+    _postsSubscription = null;
     _initialTimer?.cancel();
     _periodicTimer?.cancel();
     for (final sub in _unreadSubscriptions.values) {
       sub.cancel();
     }
     _unreadSubscriptions.clear();
+    unreadCountsMap.clear();
+    totalUnreadCount.value = 0;
     for (final sub in _hotPostsSubscriptions.values) {
       sub.cancel();
     }
     _hotPostsSubscriptions.clear();
-    scrollController.dispose();
+    posts.value = [];
+    if (scrollController.hasClients) {
+      scrollController.dispose();
+    }
     super.onClose();
   }
 
@@ -326,12 +349,14 @@ class CommunityController extends GetxController {
     
     // 새 스트림 구독
     _postsSubscription = stream.listen((data) {
-      posts.value = data;
+      // 차단된 사용자의 게시글 필터링
+      final filtered = _filterBlockedUsers(data);
+      posts.value = filtered;
       isPostsLoading.value = false;
     });
   }
 
-  void refreshPosts() async {
+  Future<void> refreshPosts() async {
     if (isNearMeActive.value) {
       try {
         Position? pos = await Geolocator.getLastKnownPosition();
@@ -343,10 +368,12 @@ class CommunityController extends GetxController {
       } catch (_) {}
     }
     _bindPostsStream();
+    // RefreshIndicator가 자연스럽게 사라지도록 stream이 첫 데이터를 받을 시간을 줌
+    await Future.delayed(const Duration(milliseconds: 600));
   }
 
   void _bindAllHotPosts() {
-    final categories = ['산책', '신고', '자유'];
+    final categories = ['산책', '제보', '자유'];
     for (final cat in categories) {
       _hotPostsSubscriptions[cat]?.cancel();
       _hotPostsSubscriptions[cat] = _repository.getHotPostsStream(cat).listen((data) {
@@ -397,6 +424,14 @@ class CommunityController extends GetxController {
       _bindPostsStream();
     }
   }
+
+  /// 차단된 사용자의 게시글을 필터링해서 제외
+  List<CommunityPost> _filterBlockedUsers(List<CommunityPost> postList) {
+    if (!Get.isRegistered<AuthController>()) return postList;
+    final auth = Get.find<AuthController>();
+    if (auth.blockedUsers.isEmpty) return postList;
+    return postList.where((post) => !auth.blockedUsers.contains(post.authorUid)).toList();
+  }
 }
 
 /*
@@ -421,7 +456,7 @@ class CommunityController extends GetxController {
   // Stream of Posts
   Rx<List<CommunityPost>> posts = Rx<List<CommunityPost>>([]);
 
-  // Hot report posts (top 5 from '신고' category, last 3 days)
+  // Hot report posts (top 5 from '제보' category, last 3 days)
   Rx<List<CommunityPost>> hotReportPosts = Rx<List<CommunityPost>>([]);
 
   // ─── Search History ─────────────────────────────────────
@@ -432,6 +467,6 @@ class CommunityController extends GetxController {
   Timer? _hotReportInitialTimer;
   Timer? _hotReportPeriodicTimer;
 
-  // ... rest of legacy code mapping '전체', '신고' logic
+  // ... rest of legacy code mapping '전체', '제보' logic
 }
 */

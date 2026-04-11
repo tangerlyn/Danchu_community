@@ -76,8 +76,8 @@ class _CommunitySearchPageState extends State<CommunitySearchPage> {
             decoration: InputDecoration(
               hintText: {
                 '산책': '산책 게시글 검색...',
-                '신고': '신고 게시글 검색...',
-                '모임': '모임 게시글 검색...',
+                '제보': '제보 게시글 검색...',
+                '모임': '단모 게시글 검색...',
                 '자유': '자유 게시글 검색...',
               }[widget.currentTab] ?? '게시글 검색...',
               hintStyle: TextStyle(color: AppColors.taupe.withOpacity(0.6), fontSize: 15),

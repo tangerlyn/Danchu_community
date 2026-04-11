@@ -716,7 +716,7 @@ class _AddScheduleSheetState extends State<AddScheduleSheet> {
                   ? Get.find<ProfileController>().dogs.map((d) => d.dogName).toList()
                   : <String>[];
 
-              // 새 멍카 등록 시 자동 선택
+              // 새 단카 등록 시 자동 선택
               if (dogNames.isNotEmpty && (_selectedDogName == null || !dogNames.contains(_selectedDogName))) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   setState(() => _selectedDogName = dogNames.first);

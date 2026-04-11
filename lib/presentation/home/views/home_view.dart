@@ -183,10 +183,13 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  void _startWalk(BuildContext context) {
+  void _startWalk(BuildContext context) async {
     final profileCtrl = Get.isRegistered<ProfileController>()
         ? Get.find<ProfileController>()
         : Get.put(ProfileController());
+
+    // Fetch up-to-date profile data before proceeding
+    await profileCtrl.fetchProfile();
 
     // ✅ 최신 dogs 데이터 확인
     final dogs = profileCtrl.dogs;
@@ -200,11 +203,11 @@ class HomeView extends GetView<HomeController> {
             children: [
               Icon(Icons.pets, color: AppColors.deepBrown, size: 24),
               SizedBox(width: 8),
-              Text('멍카가 없어요!', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.deepBrown)),
+              Text('단카가 없어요!', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.deepBrown)),
             ],
           ),
           content: const Text(
-            '산책을 시작하려면 먼저 강아지 멍카를 만들어야 해요 🐾',
+            '산책을 시작하려면 먼저 강아지 단카를 만들어야 해요 🐾',
             style: TextStyle(fontSize: 14, height: 1.5, color: AppColors.mocha),
           ),
           actions: [
@@ -218,7 +221,7 @@ class HomeView extends GetView<HomeController> {
                 final mainScreen = MainScreen.currentState;
                 mainScreen?.switchToTab(3);
               },
-              child: const Text('멍카 만들러 가기', style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold)),
+              child: const Text('단카 만들러 가기', style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

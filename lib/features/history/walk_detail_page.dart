@@ -17,7 +17,18 @@ class WalkDetailPage extends StatefulWidget {
 }
 
 class _WalkDetailPageState extends State<WalkDetailPage> {
+  NaverMapController? _mapController;
+  List<NLatLng>? _cachedPathPoints;
+
+  // 발자국 재배치를 위한 상태
+  Set<String> _currentPawIds = {};
+  double _initialZoom = 0;        // 기준선 (페이지 진입 시 고정)
+  double _lastRenderedZoom = 0;   // 마지막으로 발자국을 그린 줌 값
+  bool _isPlacingPaws = false;
+
   Future<void> _onMapReady(NaverMapController controller) async {
+    _mapController = controller;
+
     final points = widget.walk.decodedRoutePoints;
     if (points.length >= 2) {
       final nLatLngPoints = points
@@ -38,12 +49,44 @@ class _WalkDetailPageState extends State<WalkDetailPage> {
       // Wait for camera to settle, then add paw markers
       await Future.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
-      
-      await PawMarkerUtils.placePawMarkers(
+      _cachedPathPoints = nLatLngPoints;
+      final camPos = await controller.getCameraPosition();
+      _initialZoom = camPos.zoom;
+      _lastRenderedZoom = camPos.zoom;
+      _currentPawIds = await PawMarkerUtils.placePawMarkers(
         context: context,
         controller: controller,
         pathPoints: nLatLngPoints,
       );
+    }
+  }
+
+  Future<void> _onCameraIdle() async {
+    if (_mapController == null || _isPlacingPaws) return;
+    if (_cachedPathPoints == null || _cachedPathPoints!.length < 2) return;
+
+    final camPos = await _mapController!.getCameraPosition();
+    final currentZoom = camPos.zoom;
+
+    // 목표 줌: 초기 줌이 하한선. 줌아웃 시 초기 줌 기준 발자국으로 복원.
+    final targetZoom = currentZoom < _initialZoom ? _initialZoom : currentZoom;
+
+    // 마지막으로 그린 줌과 0.3 미만 차이면 무시 (깜빡임 방지)
+    if ((targetZoom - _lastRenderedZoom).abs() < 0.3) return;
+
+    _isPlacingPaws = true;
+    try {
+      if (!mounted) return;
+      _currentPawIds = await PawMarkerUtils.placePawMarkers(
+        context: context,
+        controller: _mapController!,
+        pathPoints: _cachedPathPoints!,
+        previousMarkerIds: _currentPawIds,
+        zoomOverride: targetZoom,
+      );
+      _lastRenderedZoom = targetZoom;
+    } finally {
+      _isPlacingPaws = false;
     }
   }
 
@@ -218,6 +261,7 @@ class _WalkDetailPageState extends State<WalkDetailPage> {
                         logoClickEnable: false,
                       ),
                       onMapReady: _onMapReady,
+                      onCameraIdle: _onCameraIdle,
                     )
                   : Container(
                       color: AppColors.sand.withOpacity(0.3),

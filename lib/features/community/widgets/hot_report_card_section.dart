@@ -5,6 +5,7 @@ import '../../../core/date_utils.dart';
 import '../../../domain/entities/community_post.dart';
 import '../post_detail_page.dart';
 import '../community_controller.dart';
+import '../../auth/auth_controller.dart';
 
 /// Horizontal scrollable hot posts section with PageView + dot indicators.
 class HotPostsSection extends StatefulWidget {
@@ -30,7 +31,11 @@ class _HotPostsSectionState extends State<HotPostsSection> {
     final controller = Get.find<CommunityController>();
 
     return Obx(() {
-      final hotPosts = controller.hotPostsMap[widget.mainCategory]?.value ?? [];
+      final allHotPosts = controller.hotPostsMap[widget.mainCategory]?.value ?? [];
+      final blockedUsers = Get.isRegistered<AuthController>()
+          ? Get.find<AuthController>().blockedUsers
+          : <String>[];
+      final hotPosts = allHotPosts.where((p) => !blockedUsers.contains(p.authorUid)).toList();
       if (hotPosts.isEmpty) return const SizedBox.shrink();
 
       return Column(

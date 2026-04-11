@@ -14,11 +14,37 @@ import 'widgets/post_card_skeleton.dart';
 import 'widgets/meetup_chat_skeleton.dart';
 import 'my_liked_posts_page.dart';
 
-class CommunityPage extends GetView<CommunityController> {
+class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
 
   @override
+  State<CommunityPage> createState() => _CommunityPageState();
+}
+
+class _CommunityPageState extends State<CommunityPage> {
+  CommunityController? _controller;
+
+  CommunityController get controller => _controller!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<CommunityController>()) {
+      _controller = Get.find<CommunityController>();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller == null && Get.isRegistered<CommunityController>()) {
+      _controller = Get.find<CommunityController>();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_controller == null) return const SizedBox.shrink();
     return Stack(
       children: [
         Scaffold(
@@ -145,7 +171,7 @@ class CommunityPage extends GetView<CommunityController> {
                                   color: Colors.transparent,
                                   alignment: Alignment.center,
                                   child: Text(
-                                    category,
+                                    category == '모임' ? '단모' : category,
                                     style: TextStyle(
                                       color: isActive ? AppColors.deepBrown : AppColors.taupe,
                                       fontSize: 20,
@@ -167,9 +193,14 @@ class CommunityPage extends GetView<CommunityController> {
               ),
             ),
           ),
-          body: CustomScrollView(
-            controller: controller.scrollController,
-            slivers: [
+          body: RefreshIndicator(
+            onRefresh: () => controller.refreshPosts(),
+            color: AppColors.deepBrown,
+            backgroundColor: AppColors.white,
+            child: CustomScrollView(
+              controller: controller.scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
               // Sub-category (Chip) Filter Row
               SliverToBoxAdapter(
                 child: Obx(() {
@@ -230,7 +261,7 @@ class CommunityPage extends GetView<CommunityController> {
                                   controller.toggleMyMeetupFilter();
                                 }
                               }),
-                              buildMeetupChip('내 모임', myActive, () {
+                              buildMeetupChip('내 단추 모임', myActive, () {
                                 if (!myActive) {
                                   controller.toggleMyMeetupFilter();
                                 }
@@ -393,7 +424,8 @@ class CommunityPage extends GetView<CommunityController> {
                   ),
                 );
               }),
-            ],
+              ],
+            ),
           ),
           floatingActionButton: FloatingActionButton.extended(
             heroTag: 'community_write_fab',
@@ -483,7 +515,7 @@ class CommunityPage extends GetView<CommunityController> {
                                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                                   child: Center(
                                     child: Text(
-                                      category,
+                                      category == '모임' ? '단모' : category,
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,

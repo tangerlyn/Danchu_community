@@ -38,7 +38,7 @@ class ProfilePage extends StatelessWidget {
                 )
               : null,
           title: const Text(
-            '프로필',
+            '내 정보',
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
@@ -149,11 +149,15 @@ class ProfilePage extends StatelessWidget {
               color: AppColors.sand.withOpacity(0.3),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.pets, size: 40, color: AppColors.deepBrown),
+            child: Image.asset(
+              'assets/icon/app_icon3.png',
+              width: 40,
+              height: 40,
+            ),
           ),
           const SizedBox(height: 20),
           const Text(
-            '아직 등록된 멍카가 없어요!',
+            '아직 등록된 단카가 없어요!',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -188,7 +192,7 @@ class ProfilePage extends StatelessWidget {
                 elevation: 0,
               ),
               child: const Text(
-                '첫 멍카 추가하러 가기',
+                '첫 단카 추가하러 가기',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -230,7 +234,7 @@ class ProfilePage extends StatelessWidget {
                       ? CachedNetworkImageProvider(profile.profileImageUrl)
                       : null,
                   child: profile.profileImageUrl.isEmpty
-                      ? const Icon(Icons.person, size: 32, color: AppColors.deepBrown)
+                      ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
                       : null,
                 ),
               ),
@@ -309,7 +313,7 @@ class ProfilePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '내 멍카 관리하기',
+                    '내 단추 카드 관리하기',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

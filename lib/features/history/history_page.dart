@@ -280,7 +280,7 @@ class HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F5F1),
       appBar: AppBar(
-        title: const Text('산책 기록', style: TextStyle(
+        title: const Text('산책 달력', style: TextStyle(
           fontSize: 26,
           fontWeight: FontWeight.bold,
           color: Color(0xFF3E2723),

@@ -2,15 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/app_colors.dart';
 import 'auth_controller.dart';
+import 'widgets/terms_agreement_dialog.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TermsAgreementDialog.showIfNeeded(
+        onAgreed: () {},
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     // AuthController is permanent — safely retrieve or register it
-    final authController = Get.isRegistered<AuthController>() 
-        ? Get.find<AuthController>() 
+    final authController = Get.isRegistered<AuthController>()
+        ? Get.find<AuthController>()
         : Get.put(AuthController());
 
     return Scaffold(
@@ -50,8 +66,8 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              
-              // Naver Login Button
+
+              // Naver/Kakao Login Buttons
               Obx(() => authController.isLoading.value
                   ? const Center(child: CircularProgressIndicator(color: AppColors.deepBrown))
                   : Column(
@@ -129,12 +145,113 @@ class LoginPage extends StatelessWidget {
                             ],
                           ),
                         ),
+
+                        const SizedBox(height: 12),
+
+                        // ── Apple ─────────────────────────────
+                        ElevatedButton(
+                          onPressed: () => authController.loginWithApple(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.apple, size: 22, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                'Apple로 시작하기',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     )),
               const Spacer(),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: () => _showEmailLoginDialog(context, authController),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    '게스트 로그인',
+                    style: TextStyle(
+                      color: AppColors.mocha.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.mocha.withOpacity(0.4),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEmailLoginDialog(BuildContext context, AuthController controller) {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reviewer Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: 'Email',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () {
+              if (emailController.text.trim().isNotEmpty && passwordController.text.trim().isNotEmpty) {
+                Get.back();
+                controller.loginWithEmail(emailController.text.trim(), passwordController.text.trim());
+              }
+            },
+            child: const Text('Login', style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

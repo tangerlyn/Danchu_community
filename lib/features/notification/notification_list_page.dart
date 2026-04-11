@@ -31,8 +31,8 @@ class NotificationListPage extends StatelessWidget {
           // Dummy data for "New MungCard Request"
           return _buildNotificationItem(
             context,
-            title: "새로운 멍카 교환 요청",
-            content: "'초코'님의 멍카 교환 요청이 도착했습니다!",
+            title: "새로운 단카 교환 요청",
+            content: "'초코'님의 단카 교환 요청이 도착했습니다!",
             time: "방금 전",
             isRead: false,
             onTap: () {

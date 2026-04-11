@@ -74,6 +74,8 @@ class CommunityPost {
   final String? authorProfileImageUrl;
   final String? walkSummary;
   final String? chatRoomImageUrl;
+  final String? hostUid;       // 단장 uid
+  final String joinType;       // 'free' 또는 'approval'
 
   CommunityPost({
     required this.id,
@@ -112,6 +114,8 @@ class CommunityPost {
     this.authorProfileImageUrl,
     this.walkSummary,
     this.chatRoomImageUrl,
+    this.hostUid,
+    this.joinType = 'free',
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json, String id) {
@@ -154,6 +158,8 @@ class CommunityPost {
       authorProfileImageUrl: json['authorProfileImageUrl'],
       walkSummary: json['walkSummary'],
       chatRoomImageUrl: json['chatRoomImageUrl'],
+      hostUid: json['hostUid'],
+      joinType: json['joinType'] ?? 'free',
     );
   }
 
@@ -194,6 +200,8 @@ class CommunityPost {
     String? authorProfileImageUrl,
     String? walkSummary,
     String? chatRoomImageUrl,
+    String? hostUid,
+    String? joinType,
   }) {
     return CommunityPost(
       id: id ?? this.id,
@@ -232,6 +240,8 @@ class CommunityPost {
       authorProfileImageUrl: authorProfileImageUrl ?? this.authorProfileImageUrl,
       walkSummary: walkSummary ?? this.walkSummary,
       chatRoomImageUrl: chatRoomImageUrl ?? this.chatRoomImageUrl,
+      hostUid: hostUid ?? this.hostUid,
+      joinType: joinType ?? this.joinType,
     );
   }
 
@@ -291,6 +301,8 @@ class CommunityPost {
       if (authorProfileImageUrl != null) 'authorProfileImageUrl': authorProfileImageUrl,
       if (walkSummary != null) 'walkSummary': walkSummary,
       if (chatRoomImageUrl != null) 'chatRoomImageUrl': chatRoomImageUrl,
+      if (hostUid != null) 'hostUid': hostUid,
+      'joinType': joinType,
     };
   }
 }

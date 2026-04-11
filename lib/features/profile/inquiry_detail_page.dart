@@ -70,10 +70,10 @@ class InquiryDetailPage extends StatelessWidget {
             // 작성자 + 날짜
             Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 14,
                   backgroundColor: AppColors.sand,
-                  child: Icon(Icons.person, size: 18, color: AppColors.white),
+                  child: ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity)),
                 ),
                 const SizedBox(width: 8),
                 const Text(

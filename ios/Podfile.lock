@@ -1198,6 +1198,10 @@ PODS:
     - Firebase/Firestore (= 12.8.0)
     - firebase_core
     - Flutter
+  - cloud_functions (6.0.6):
+    - Firebase/Functions (= 12.8.0)
+    - firebase_core
+    - Flutter
   - connectivity_plus (0.0.1):
     - Flutter
   - Firebase/Auth (12.8.0):
@@ -1208,6 +1212,9 @@ PODS:
   - Firebase/Firestore (12.8.0):
     - Firebase/CoreOnly
     - FirebaseFirestore (~> 12.8.0)
+  - Firebase/Functions (12.8.0):
+    - Firebase/CoreOnly
+    - FirebaseFunctions (~> 12.8.0)
   - Firebase/Messaging (12.8.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.8.0)
@@ -1290,6 +1297,14 @@ PODS:
     - gRPC-Core (~> 1.69.0)
     - leveldb-library (~> 1.22)
     - nanopb (~> 3.30910.0)
+  - FirebaseFunctions (12.8.0):
+    - FirebaseAppCheckInterop (~> 12.8.0)
+    - FirebaseAuthInterop (~> 12.8.0)
+    - FirebaseCore (~> 12.8.0)
+    - FirebaseCoreExtension (~> 12.8.0)
+    - FirebaseMessagingInterop (~> 12.8.0)
+    - FirebaseSharedSwift (~> 12.8.0)
+    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
   - FirebaseInstallations (12.8.0):
     - FirebaseCore (~> 12.8.0)
     - GoogleUtilities/Environment (~> 8.1)
@@ -1304,6 +1319,7 @@ PODS:
     - GoogleUtilities/Reachability (~> 8.1)
     - GoogleUtilities/UserDefaults (~> 8.1)
     - nanopb (~> 3.30910.0)
+  - FirebaseMessagingInterop (12.8.0)
   - FirebaseSharedSwift (12.8.0)
   - FirebaseStorage (12.8.0):
     - FirebaseAppCheckInterop (~> 12.8.0)
@@ -1508,6 +1524,8 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - sign_in_with_apple (0.0.1):
+    - Flutter
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
@@ -1517,6 +1535,7 @@ PODS:
 
 DEPENDENCIES:
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
+  - cloud_functions (from `.symlinks/plugins/cloud_functions/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
@@ -1538,6 +1557,7 @@ DEPENDENCIES:
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
@@ -1555,8 +1575,10 @@ SPEC REPOS:
     - FirebaseCoreInternal
     - FirebaseFirestore
     - FirebaseFirestoreInternal
+    - FirebaseFunctions
     - FirebaseInstallations
     - FirebaseMessaging
+    - FirebaseMessagingInterop
     - FirebaseSharedSwift
     - FirebaseStorage
     - GoogleAdsOnDeviceConversion
@@ -1578,6 +1600,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   cloud_firestore:
     :path: ".symlinks/plugins/cloud_firestore/ios"
+  cloud_functions:
+    :path: ".symlinks/plugins/cloud_functions/ios"
   connectivity_plus:
     :path: ".symlinks/plugins/connectivity_plus/ios"
   firebase_analytics:
@@ -1620,6 +1644,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  sign_in_with_apple:
+    :path: ".symlinks/plugins/sign_in_with_apple/ios"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
   url_launcher_ios:
@@ -1629,6 +1655,7 @@ SPEC CHECKSUMS:
   abseil: a05cc83bf02079535e17169a73c5be5ba47f714b
   BoringSSL-GRPC: dded2a44897e45f28f08ae87a55ee4bcd19bc508
   cloud_firestore: 4bd00c3464706d9e09dabac0bb8e9610456109f5
+  cloud_functions: 20f0d60aa8a30d7bb3dc3c796665e2d9de828b61
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   Firebase: 9a58fdbc9d8655ed7b79a19cf9690bb007d3d46d
   firebase_analytics: a3285a9ab410456957496cdb659f00c1cf19a95f
@@ -1645,8 +1672,10 @@ SPEC CHECKSUMS:
   FirebaseCoreInternal: fe5fa466aeb314787093a7dce9f0beeaad5a2a21
   FirebaseFirestore: 67f23000ca238ccbab79127ed59636a9a2689e74
   FirebaseFirestoreInternal: a0e7382af3d208898dcd1d4d52d8a7870632e881
+  FirebaseFunctions: 65f773056cb7f654626e5fa4894b1d6539cb5feb
   FirebaseInstallations: 6a14ab3d694ebd9f839c48d330da5547e9ca9dc0
   FirebaseMessaging: 7f42cfd10ec64181db4e01b305a613791c8e782c
+  FirebaseMessagingInterop: e27b8f42f682efdb101318a53c3f5316ce3402e6
   FirebaseSharedSwift: f57ed48f4542b2d7eb4738f4f23ba443f78b3780
   FirebaseStorage: 7c37558dc72731aa5f0a1a2401d8c6de10a513f5
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
@@ -1678,6 +1707,7 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b

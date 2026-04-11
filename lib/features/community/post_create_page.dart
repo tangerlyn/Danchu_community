@@ -287,11 +287,64 @@ class _PostCreatePageState extends State<PostCreatePage> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      _buildMeetupField(
+                        icon: Icons.how_to_reg_outlined,
+                        title: '참가 방식',
+                        child: Obx(() => Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => controller.selectedJoinType.value = 'free',
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: controller.selectedJoinType.value == 'free' ? AppColors.deepBrown : AppColors.sand.withOpacity(0.3),
+                                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                                    border: Border.all(color: controller.selectedJoinType.value == 'free' ? AppColors.deepBrown : AppColors.sand),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '자유 참가',
+                                    style: TextStyle(
+                                      color: controller.selectedJoinType.value == 'free' ? AppColors.white : AppColors.mocha,
+                                      fontWeight: controller.selectedJoinType.value == 'free' ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => controller.selectedJoinType.value = 'approval',
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: controller.selectedJoinType.value == 'approval' ? AppColors.deepBrown : AppColors.sand.withOpacity(0.3),
+                                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                                    border: Border.all(color: controller.selectedJoinType.value == 'approval' ? AppColors.deepBrown : AppColors.sand),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '승인 후 참가',
+                                    style: TextStyle(
+                                      color: controller.selectedJoinType.value == 'approval' ? AppColors.white : AppColors.mocha,
+                                      fontWeight: controller.selectedJoinType.value == 'approval' ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )),
+                      ),
+                      const SizedBox(height: 16),
                       const Divider(color: AppColors.sand, thickness: 1),
                       const SizedBox(height: 16),
                     ],
                   );
-                } else if (mainCat == '신고' && ['실종', '임시보호'].contains(subCat)) {
+                } else if (mainCat == '제보' && ['실종', '임시보호'].contains(subCat)) {
                   return Column(
                     children: [
                       PetReportForm(

@@ -16,7 +16,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final _uid = FirebaseAuth.instance.currentUser?.uid;
 
   bool _commentNotif = true;
-  bool _likeNotif = true;
   bool _meetupNotif = true;
   bool _scheduleNotif = true;
   bool _replyNotif = true;
@@ -42,7 +41,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         final data = doc.data()!;
         setState(() {
           _commentNotif = data['comment'] ?? true;
-          _likeNotif = data['like'] ?? true;
           _meetupNotif = data['meetup'] ?? true;
           _scheduleNotif = data['schedule'] ?? true;
           _replyNotif = data['reply'] ?? true;
@@ -106,17 +104,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       onChanged: (val) {
                         setState(() => _commentNotif = val);
                         _updateSetting('comment', val);
-                      },
-                    ),
-                    Divider(height: 1, color: AppColors.sand.withOpacity(0.5)),
-                    _buildToggleItem(
-                      icon: Icons.favorite_border,
-                      label: '좋아요 알림',
-                      subtitle: '내 게시글에 좋아요가 생기면 알려드려요',
-                      value: _likeNotif,
-                      onChanged: (val) {
-                        setState(() => _likeNotif = val);
-                        _updateSetting('like', val);
                       },
                     ),
                     Divider(height: 1, color: AppColors.sand.withOpacity(0.5)),

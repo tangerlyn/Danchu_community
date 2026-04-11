@@ -56,7 +56,7 @@ class _ChatUserProfilePageState extends State<ChatUserProfilePage> {
           icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.deepBrown, size: 20),
           onPressed: () => Get.back(),
         ),
-        title: const Text('프로필', style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.bold, fontSize: 16)),
+
         centerTitle: true,
       ),
       body: _buildBody(),
@@ -96,7 +96,7 @@ class _ChatUserProfilePageState extends State<ChatUserProfilePage> {
                         ? CachedNetworkImageProvider(profile.profileImageUrl)
                         : null,
                     child: profile.profileImageUrl.isEmpty
-                        ? const Icon(Icons.person, size: 40, color: AppColors.taupe)
+                        ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
                         : null,
                   ),
                 ),
@@ -141,7 +141,7 @@ class _ChatUserProfilePageState extends State<ChatUserProfilePage> {
                 const Icon(Icons.pets, size: 20, color: AppColors.deepBrown),
                 const SizedBox(width: 8),
                 const Text(
-                  '멍프로필',
+                  '단추 카드',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

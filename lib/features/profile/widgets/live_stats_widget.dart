@@ -90,7 +90,7 @@ class LiveStatsWidgetState extends State<LiveStatsWidget> with WidgetsBindingObs
             children: [
               const Expanded(
                 child: Text(
-                  '활동 통계',
+                  '이번주 활동 통계',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -118,7 +118,7 @@ class LiveStatsWidgetState extends State<LiveStatsWidget> with WidgetsBindingObs
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _statTile(Icons.pets, '이번 주 산책', '$_weekWalks회')),
+                Expanded(child: _statTile(Icons.pets, '산책 횟수', '$_weekWalks회')),
                 const SizedBox(width: 8),
                 Expanded(child: _statTile(Icons.directions_run, '산책 거리', '${_weekDistance.toStringAsFixed(1)}km')),
                 const SizedBox(width: 8),
