@@ -52,7 +52,7 @@ class HomeView extends GetView<HomeController> {
             options: const NaverMapViewOptions(
               customStyleId: 'e0aa762a-75d3-4e45-a38e-dd8385fefb73',
               indoorEnable: true,
-              locationButtonEnable: true,
+              locationButtonEnable: false,
               consumeSymbolTapEvents: false,
               logoClickEnable: false,
             ),
@@ -166,6 +166,24 @@ class HomeView extends GetView<HomeController> {
               ),
             );
           }),
+
+          // 6. 커스텀 내 위치 버튼 (줌 리셋 포함)
+          Obx(() => controller.selectedPlace.value == null &&
+                  !controller.showBottomSheet.value &&
+                  !controller.isSearchFocused.value
+              ? Positioned(
+                  bottom: MediaQuery.of(context).padding.bottom + 16,
+                  left: 16,
+                  child: FloatingActionButton.small(
+                    heroTag: 'home_my_location',
+                    backgroundColor: AppColors.white,
+                    foregroundColor: AppColors.deepBrown,
+                    elevation: 4,
+                    onPressed: () => controller.moveToCurrentLocation(),
+                    child: const Icon(Icons.my_location),
+                  ),
+                )
+              : const SizedBox.shrink()),
         ],
       ),
       ),

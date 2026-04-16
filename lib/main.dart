@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,9 +31,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  await NaverMapSdk.instance.initialize(clientId: AppSecrets.naverMapClientId);
+  await FlutterNaverMap().init(
+    clientId: '4erd0jhvuv',
+    onAuthFailed: (ex) => print("********* 네이버맵 인증오류 : $ex *********"),
+  );
+  debugPrint('🗺️ Naver Map SDK initialized with: 4erd0jhvuv');
 
   // Kakao SDK 초기화
   KakaoSdk.init(nativeAppKey: AppSecrets.kakaoNativeAppKey);
@@ -67,6 +73,10 @@ void main() async {
   debugPrint('🚀 Onboarding Check: isProfileCompleted=$isProfileCompleted, isLoggedIn=$isLoggedIn');
 
   Get.put(NetworkController(), permanent: true);
+
+  // 스플래시 최소 표시 시간 보장 (iOS에서 너무 빨리 사라지는 문제 방지)
+  await Future.delayed(const Duration(milliseconds: 1500));
+  FlutterNativeSplash.remove();
 
   runApp(PawprintApp(
     isProfileCompleted: isProfileCompleted,

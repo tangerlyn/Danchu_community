@@ -144,6 +144,21 @@ class ProfileRepository {
       .catchError((e) => debugPrint('⚠️ deleteDog sync failed (local OK): $e'));
   }
 
+  /// 닉네임 중복 체크
+  Future<bool> isNicknameTaken(String nickname) async {
+    try {
+      final result = await _firestore
+          .collection('users')
+          .where('nickname', isEqualTo: nickname)
+          .limit(1)
+          .get();
+      return result.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('⚠️ isNicknameTaken error: $e');
+      return false;
+    }
+  }
+
   Future<String> uploadDogImage(String uid, String dogId, File imageFile) async {
     try {
       final ref = _storage.ref().child('dog_images').child('${uid}_$dogId.jpg');

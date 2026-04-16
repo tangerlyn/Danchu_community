@@ -33,7 +33,7 @@ class _ProfileEditFormState extends State<ProfileEditForm> {
             const SizedBox(height: 32),
             _buildImagePicker(),
             const SizedBox(height: 32),
-            _formField(widget.controller.nicknameController, '보호자 닉네임', Icons.person_outline),
+            _buildNicknameField(),
             const SizedBox(height: 32),
             _buildSaveButton(),
           ],
@@ -76,6 +76,63 @@ class _ProfileEditFormState extends State<ProfileEditForm> {
         ],
       ),
     );
+  }
+
+  Widget _buildNicknameField() {
+    final controller = widget.controller;
+    return Obx(() {
+      final canChange = controller.canChangeNickname.value;
+      final lastChanged = controller.lastNicknameChangedAt.value;
+
+      String? subText;
+
+      if (!canChange && lastChanged != null) {
+        final remaining = 30 - DateTime.now().difference(lastChanged).inDays;
+        subText = '닉네임은 변경 후 30일이 지나야 바꿀 수 있어요. (${remaining}일 남음)';
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller.nicknameController,
+            maxLines: 1,
+            maxLength: 10,
+            enabled: canChange,
+            onChanged: (val) => setState(() {}),
+            decoration: InputDecoration(
+              counterText: '${controller.nicknameController.text.length}/10',
+              counterStyle: const TextStyle(fontSize: 12, color: AppColors.taupe),
+              labelText: '보호자 닉네임',
+              prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF8D6E63)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE0D8D0), width: 1),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE0D8D0), width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.deepBrown, width: 1.5),
+              ),
+              filled: true,
+              fillColor: canChange ? AppColors.white : AppColors.sand.withOpacity(0.3),
+            ),
+          ),
+          if (subText != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(
+                subText,
+                style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+              ),
+            ),
+        ],
+      );
+    });
   }
 
   Widget _buildSaveButton() {

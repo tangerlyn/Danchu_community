@@ -12,7 +12,7 @@ import NidCore
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    NMFAuthManager.shared().clientId = "opecblmtte"
+    NMFAuthManager.shared().clientId = "4erd0jhvuv"
 
     // Local notification setup
     if #available(iOS 10.0, *) {

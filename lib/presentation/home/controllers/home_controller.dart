@@ -876,4 +876,34 @@ class HomeController extends GetxController {
       ),
     );
   }
+
+  // ─── My Location (Custom Button) ────────────────────────
+
+  Future<void> moveToCurrentLocation() async {
+    if (mapController == null) return;
+
+    try {
+      // Reuse the tracking mode to snap to current location at zoom 17
+      mapController!.setLocationTrackingMode(NLocationTrackingMode.follow);
+
+      // After snapping, switch back to noFollow so manual pan still works
+      await Future.delayed(const Duration(milliseconds: 600));
+      mapController!.setLocationTrackingMode(NLocationTrackingMode.noFollow);
+
+      // Override zoom level to 17 explicitly
+      final camera = await mapController!.getCameraPosition();
+      final update = NCameraUpdate.withParams(
+        target: camera.target,
+        zoom: 15,
+      );
+      update.setAnimation(
+        animation: NCameraAnimation.easing,
+        duration: const Duration(milliseconds: 400),
+      );
+      mapController!.updateCamera(update);
+    } catch (e) {
+      debugPrint('⚠️ Failed to move to current location: $e');
+    }
+  }
 }
+

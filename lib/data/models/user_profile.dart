@@ -16,6 +16,7 @@ class UserProfile {
   final double? weight;
   final String profileImageUrl;
   final DateTime? createdAt;
+  final DateTime? nicknameChangedAt;
   // Multi-dog support
   final List<DogProfile> dogs;
 
@@ -33,6 +34,7 @@ class UserProfile {
     this.weight,
     this.profileImageUrl = '',
     this.createdAt,
+    this.nicknameChangedAt,
     this.dogs = const [],
   });
 
@@ -61,6 +63,7 @@ class UserProfile {
       weight: (data['weight'] as num?)?.toDouble(),
       profileImageUrl: data['profileImageUrl'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      nicknameChangedAt: (data['nicknameChangedAt'] as Timestamp?)?.toDate(),
       // dogs will be populated separately after fetching subcollection
     );
   }
@@ -81,6 +84,7 @@ class UserProfile {
       weight: weight,
       profileImageUrl: profileImageUrl,
       createdAt: createdAt,
+      nicknameChangedAt: nicknameChangedAt,
       dogs: dogsList,
     );
   }
@@ -122,6 +126,7 @@ class UserProfile {
     double? weight,
     String? profileImageUrl,
     DateTime? createdAt,
+    DateTime? nicknameChangedAt,
     List<DogProfile>? dogs,
   }) {
     return UserProfile(
@@ -138,6 +143,7 @@ class UserProfile {
       weight: weight ?? this.weight,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       createdAt: createdAt ?? this.createdAt,
+      nicknameChangedAt: nicknameChangedAt ?? this.nicknameChangedAt,
       dogs: dogs ?? this.dogs,
     );
   }
@@ -156,6 +162,7 @@ class UserProfile {
       'weight': weight,
       'profileImageUrl': profileImageUrl,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+      if (nicknameChangedAt != null) 'nicknameChangedAt': Timestamp.fromDate(nicknameChangedAt!),
     };
   }
 }

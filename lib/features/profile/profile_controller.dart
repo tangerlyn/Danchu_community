@@ -24,6 +24,9 @@ class ProfileController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isEditing = false.obs;
 
+  final RxBool canChangeNickname = true.obs;
+  final Rx<DateTime?> lastNicknameChangedAt = Rx<DateTime?>(null);
+
   // Multi-dog state
   final RxList<DogProfile> dogs = <DogProfile>[].obs;
   final RxInt currentDogIndex = 0.obs;
@@ -74,6 +77,17 @@ class ProfileController extends GetxController {
         userProfile.value = profile;
         dogs.value = profile.effectiveDogs;
         _populateOwnerForm(profile);
+
+        // 닉네임 변경 가능 여부 체크
+        final changedAt = profile.nicknameChangedAt;
+        lastNicknameChangedAt.value = changedAt;
+        if (changedAt != null) {
+          final diff = DateTime.now().difference(changedAt);
+          canChangeNickname.value = diff.inDays >= 30;
+        } else {
+          canChangeNickname.value = true;
+        }
+
         isEditing.value = false;
       } else {
         isEditing.value = true;
@@ -291,6 +305,19 @@ class ProfileController extends GetxController {
       Get.snackbar("잠깐!", "닉네임은 필수입니다 🐾");
       return;
     }
+    if (!RegExp(r'^[a-zA-Z0-9가-힣 ]+$').hasMatch(nicknameController.text.trim())) {
+      Get.snackbar("잠깐!", "닉네임은 한글, 영문, 숫자만 사용할 수 있어요 (자음, 모음 단독 불가) 🐾");
+      return;
+    }
+    if (!canChangeNickname.value && nicknameController.text.trim() != userProfile.value?.nickname) {
+      Get.snackbar('잠깐!', '닉네임은 변경 후 30일이 지나야 다시 변경할 수 있어요 🐾');
+      return;
+    }
+    final isTaken = await _repository.isNicknameTaken(nicknameController.text.trim());
+    if (isTaken && nicknameController.text.trim() != userProfile.value?.nickname) {
+      Get.snackbar('잠깐!', '이미 사용중인 닉네임이에요 🐾');
+      return;
+    }
 
     isLoading.value = true;
     try {
@@ -321,6 +348,19 @@ class ProfileController extends GetxController {
     if (nicknameController.text.isEmpty) {
        Get.snackbar("잠깐!", "닉네임은 필수입니다 🐾", snackPosition: SnackPosition.BOTTOM);
        return;
+    }
+    if (!RegExp(r'^[a-zA-Z0-9가-힣 ]+$').hasMatch(nicknameController.text.trim())) {
+      Get.snackbar("잠깐!", "닉네임은 한글, 영문, 숫자만 사용할 수 있어요 (자음, 모음 단독 불가) 🐾");
+      return;
+    }
+    if (!canChangeNickname.value && nicknameController.text.trim() != userProfile.value?.nickname) {
+      Get.snackbar('잠깐!', '닉네임은 변경 후 30일이 지나야 다시 변경할 수 있어요 🐾');
+      return;
+    }
+    final isTaken = await _repository.isNicknameTaken(nicknameController.text.trim());
+    if (isTaken && nicknameController.text.trim() != userProfile.value?.nickname) {
+      Get.snackbar('잠깐!', '이미 사용중인 닉네임이에요 🐾');
+      return;
     }
 
     isLoading.value = true;
@@ -359,11 +399,27 @@ class ProfileController extends GetxController {
       dogName: '',
       birthYear: DateTime.now().year,
       createdAt: userProfile.value?.createdAt,
+      nicknameChangedAt: userProfile.value?.nicknameChangedAt,
       dogs: dogs.toList(),
     );
 
-    await _repository.saveUserProfile(newProfile);
-    userProfile.value = newProfile;
+    // 닉네임이 바뀐 경우에만 변경 시각 업데이트
+    final oldNickname = userProfile.value?.nickname ?? '';
+    final newNickname = nicknameController.text;
+    final now = DateTime.now();
+    final nicknameChanged = oldNickname != newNickname && oldNickname.isNotEmpty;
+
+    final updatedProfile = nicknameChanged
+        ? newProfile.copyWith(nicknameChangedAt: now)
+        : newProfile.copyWith(nicknameChangedAt: userProfile.value?.nicknameChangedAt);
+
+    await _repository.saveUserProfile(updatedProfile);
+    userProfile.value = updatedProfile;
+
+    if (nicknameChanged) {
+      lastNicknameChangedAt.value = now;
+      canChangeNickname.value = false;
+    }
   }
 
   Future<void> updateUserBasicInfo() async {
@@ -398,6 +454,8 @@ class ProfileController extends GetxController {
   }
 
   // ─── Helpers ───
+
+
 
   String _getCurrentUid() {
     final user = FirebaseAuth.instance.currentUser;

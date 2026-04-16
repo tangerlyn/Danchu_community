@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/app_colors.dart';
@@ -146,35 +147,36 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
-
-                        // ── Apple ─────────────────────────────
-                        ElevatedButton(
-                          onPressed: () => authController.loginWithApple(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.apple, size: 22, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text(
-                                'Apple로 시작하기',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                          const SizedBox(height: 12),
+                          // ── Apple ─────────────────────────────
+                          ElevatedButton(
+                            onPressed: () => authController.loginWithApple(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                            ],
+                              elevation: 0,
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.apple, size: 22, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Apple로 시작하기',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     )),
               const Spacer(),
