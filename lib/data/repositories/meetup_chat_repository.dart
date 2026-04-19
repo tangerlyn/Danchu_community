@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../domain/entities/chat_message.dart';
 
@@ -25,6 +26,71 @@ class MeetupChatRepository {
       return await uploadTask.ref.getDownloadURL();
     } catch (e) {
       debugPrint('⚠️ uploadImage error: $e');
+      rethrow;
+    }
+  }
+
+  /// 채팅용 동영상 업로드 (압축 + 썸네일 생성)
+  /// 반환값: {'videoUrl': ..., 'thumbnailUrl': ...}
+  Future<Map<String, String>> uploadVideo(String postId, String uid, File videoFile) async {
+    try {
+      // 1. 길이 검증
+      final mediaInfo = await VideoCompress.getMediaInfo(videoFile.path);
+      final durationSec = (mediaInfo.duration ?? 0) / 1000;
+      if (durationSec > 30) {
+        throw Exception('동영상은 최대 30초까지 전송할 수 있습니다.');
+      }
+
+      // 2. 압축
+      debugPrint('🎬 [Chat] Compressing video...');
+      final compressedInfo = await VideoCompress.compressVideo(
+        videoFile.path,
+        quality: VideoQuality.MediumQuality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+
+      if (compressedInfo == null || compressedInfo.file == null) {
+        throw Exception('동영상 압축에 실패했습니다.');
+      }
+
+      final compressedFile = compressedInfo.file!;
+
+      // 3. 썸네일 생성
+      final thumbnailFile = await VideoCompress.getFileThumbnail(
+        videoFile.path,
+        quality: 70,
+        position: -1,
+      );
+
+      // 4. 업로드
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+      final videoRef = _storage.ref().child('chat_videos/$postId/${timestamp}_$uid.mp4');
+      final videoUpload = await videoRef.putFile(
+        compressedFile,
+        SettableMetadata(contentType: 'video/mp4'),
+      );
+      final videoUrl = await videoUpload.ref.getDownloadURL();
+
+      final thumbRef = _storage.ref().child('chat_videos/$postId/${timestamp}_${uid}_thumb.jpg');
+      await thumbRef.putFile(
+        thumbnailFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final thumbnailUrl = await thumbRef.getDownloadURL();
+
+      // 5. 캐시 정리
+      await VideoCompress.deleteAllCache();
+
+      debugPrint('✅ [Chat] Video uploaded: $videoUrl');
+      return {
+        'videoUrl': videoUrl,
+        'thumbnailUrl': thumbnailUrl,
+      };
+    } catch (e) {
+      await VideoCompress.deleteAllCache();
+      debugPrint('⚠️ uploadVideo error: $e');
       rethrow;
     }
   }

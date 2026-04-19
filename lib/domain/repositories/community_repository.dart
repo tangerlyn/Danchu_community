@@ -12,7 +12,7 @@ abstract class CommunityRepository {
   Future<CommunityPost?> getPostById(String postId);
 
   /// Create a new post (handles image uploads internally for atomicity)
-  Future<List<String>> createPost(CommunityPost post, List<File> imageFiles);
+  Future<List<String>> createPost(CommunityPost post, List<File> imageFiles, {File? videoFile});
 
   /// Delete a post
   Future<void> deletePost(String postId);

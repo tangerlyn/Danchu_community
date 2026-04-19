@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import 'package:pawprint_app/core/app_colors.dart';
@@ -47,6 +48,9 @@ class PostCreateController extends GetxController with PetReportMixin {
   var selectedJoinType = 'free'.obs; // 'free' or 'approval'
 
   var selectedImages = <File>[].obs;
+  var selectedVideo = Rxn<File>();
+  var selectedVideoName = ''.obs;
+  var isVideoCompressing = false.obs;
   
   List<Map<String, double>>? _passedRoutePoints;
   String? _passedWalkSummary;
@@ -99,6 +103,8 @@ class PostCreateController extends GetxController with PetReportMixin {
     meetupLocationController.dispose();
     meetupCapacityController.dispose();
     disposePetFields(); // from PetReportMixin
+    // 동영상 압축 캐시 정리
+    VideoCompress.deleteAllCache();
     super.onClose();
   }
 
@@ -183,6 +189,43 @@ class PostCreateController extends GetxController with PetReportMixin {
 
   void removeImage(int index) {
     selectedImages.removeAt(index);
+  }
+
+  Future<void> pickVideo() async {
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(seconds: 30),
+      );
+      if (video == null) return;
+
+      final file = File(video.path);
+
+      final fileSize = await file.length();
+      if (fileSize > 200 * 1024 * 1024) {
+        Get.snackbar('알림', '동영상 파일이 너무 큽니다. 200MB 이하의 영상을 선택해주세요.');
+        return;
+      }
+
+      final mediaInfo = await VideoCompress.getMediaInfo(file.path);
+      final durationSec = (mediaInfo.duration ?? 0) / 1000;
+      if (durationSec > 30) {
+        Get.snackbar('알림', '동영상은 최대 30초까지 첨부할 수 있습니다.');
+        return;
+      }
+
+      selectedVideo.value = file;
+      selectedVideoName.value = video.name;
+      debugPrint('Video selected: name=${video.name}');
+    } catch (e) {
+      debugPrint('Error picking video: $e');
+      Get.snackbar('잠깐!', '동영상을 불러오는 중 문제가 발생했어요 🐾');
+    }
+  }
+
+  void removeVideo() {
+    selectedVideo.value = null;
+    selectedVideoName.value = '';
   }
 
 
@@ -378,8 +421,13 @@ class PostCreateController extends GetxController with PetReportMixin {
         hostUid: selectedMainCategory.value == '모임' ? uid : null,
       );
 
-      final uploadedUrls = await _communityRepository.createPost(post, selectedImages);
-      final postWithImages = post.copyWith(imageUrls: uploadedUrls);
+      final uploadedUrls = await _communityRepository.createPost(
+        post,
+        selectedImages,
+        videoFile: selectedVideo.value,
+      );
+      final savedPost = await _communityRepository.getPostById(post.id);
+      final postWithImages = savedPost ?? post.copyWith(imageUrls: uploadedUrls);
       
       if (post.mainCategory == '모임') {
         if (Get.isRegistered<CommunityController>()) {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:video_compress/video_compress.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
@@ -215,7 +216,97 @@ class CommunityRepositoryImpl implements CommunityRepository {
   }
 
   @override
-  Future<List<String>> createPost(CommunityPost post, List<File> imageFiles) async {
+  /// 동영상을 압축하고 Firebase Storage에 업로드한 뒤 [videoUrl, thumbnailUrl]을 반환
+  Future<Map<String, String>> uploadVideo(File videoFile, String authorUid, String postId) async {
+    Reference? videoRef;
+    Reference? thumbRef;
+
+    try {
+      // 1. 동영상 길이/크기 검증
+      final mediaInfo = await VideoCompress.getMediaInfo(videoFile.path);
+      final durationSec = (mediaInfo.duration ?? 0) / 1000;
+      if (durationSec > 30) {
+        throw Exception('동영상은 최대 30초까지 첨부할 수 있습니다.');
+      }
+
+      final fileSizeBytes = await videoFile.length();
+      if (fileSizeBytes > 50 * 1024 * 1024) {
+        throw Exception('동영상 파일 크기는 50MB 이하만 가능합니다.');
+      }
+
+      // 2. 동영상 압축 (720p)
+      print('🎬 Compressing video...');
+      final compressedInfo = await VideoCompress.compressVideo(
+        videoFile.path,
+        quality: VideoQuality.MediumQuality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+
+      if (compressedInfo == null || compressedInfo.file == null) {
+        throw Exception('동영상 압축에 실패했습니다.');
+      }
+
+      final compressedFile = compressedInfo.file!;
+      final compressedSize = await compressedFile.length();
+      print('✅ Video compressed: ${(fileSizeBytes / 1024 / 1024).toStringAsFixed(1)}MB → ${(compressedSize / 1024 / 1024).toStringAsFixed(1)}MB');
+
+      // 3. 썸네일 생성
+      final thumbnailFile = await VideoCompress.getFileThumbnail(
+        videoFile.path,
+        quality: 70,
+        position: -1, // 자동 (보통 1초 지점)
+      );
+
+      // 4. 동영상 업로드
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final videoFileName = '${timestamp}_${authorUid}_video.mp4';
+      videoRef = _storage.ref().child('community_videos').child(videoFileName);
+
+      final videoUploadTask = videoRef.putFile(
+        compressedFile,
+        SettableMetadata(
+          contentType: 'video/mp4',
+          customMetadata: {'postId': postId, 'uploadedBy': authorUid},
+        ),
+      );
+      final videoSnapshot = await videoUploadTask;
+      if (videoSnapshot.state != TaskState.success) {
+        throw Exception('동영상 업로드가 완료되지 않았습니다.');
+      }
+      final videoUrl = await videoRef.getDownloadURL();
+      print('✅ Video uploaded: $videoUrl');
+
+      // 5. 썸네일 업로드
+      final thumbFileName = '${timestamp}_${authorUid}_thumb.jpg';
+      thumbRef = _storage.ref().child('community_videos').child(thumbFileName);
+
+      final thumbUploadTask = thumbRef.putFile(
+        thumbnailFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      await thumbUploadTask;
+      final thumbnailUrl = await thumbRef.getDownloadURL();
+      print('✅ Thumbnail uploaded: $thumbnailUrl');
+
+      // 6. 압축 캐시 정리
+      await VideoCompress.deleteAllCache();
+
+      return {
+        'videoUrl': videoUrl,
+        'thumbnailUrl': thumbnailUrl,
+      };
+    } catch (e) {
+      // Rollback
+      try { await videoRef?.delete(); } catch (_) {}
+      try { await thumbRef?.delete(); } catch (_) {}
+      await VideoCompress.deleteAllCache();
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<String>> createPost(CommunityPost post, List<File> imageFiles, {File? videoFile}) async {
     List<String> uploadedImageUrls = [];
     List<Reference> uploadedRefs = [];
 
@@ -259,9 +350,22 @@ class CommunityRepositoryImpl implements CommunityRepository {
         uploadedRefs.add(ref);
       }
 
-      // 3. Save to Firestore
+      // 3. Upload Video (if provided)
+      String? videoUrl;
+      String? videoThumbnailUrl;
+      if (videoFile != null) {
+        final videoResult = await uploadVideo(videoFile, post.authorUid, post.id);
+        videoUrl = videoResult['videoUrl'];
+        videoThumbnailUrl = videoResult['thumbnailUrl'];
+      }
+
+      // 4. Save to Firestore
       final postData = post.toJson();
       postData['imageUrls'] = uploadedImageUrls;
+      if (videoUrl != null) {
+        postData['videoUrl'] = videoUrl;
+        postData['videoThumbnailUrl'] = videoThumbnailUrl;
+      }
       if (post.mainCategory == '모임') {
         postData['hostUid'] = post.authorUid;
       }
@@ -322,6 +426,22 @@ class CommunityRepositoryImpl implements CommunityRepository {
           } catch (e) {
             print('Failed to delete image: $url. Error: $e');
           }
+        }
+      }
+
+      // 1-2. 동영상 삭제
+      if (post != null && post.videoUrl != null && post.videoUrl!.isNotEmpty) {
+        try {
+          await _storage.refFromURL(post.videoUrl!).delete();
+        } catch (e) {
+          print('Failed to delete video: $e');
+        }
+      }
+      if (post != null && post.videoThumbnailUrl != null && post.videoThumbnailUrl!.isNotEmpty) {
+        try {
+          await _storage.refFromURL(post.videoThumbnailUrl!).delete();
+        } catch (e) {
+          print('Failed to delete video thumbnail: $e');
         }
       }
 

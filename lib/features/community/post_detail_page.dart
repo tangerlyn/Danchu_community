@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import 'package:chewie/src/material/material_controls.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -33,6 +36,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   late final PostDetailController controller;
   final ScrollController _scrollController = ScrollController();
   int _currentImageIndex = 0;
+  VideoPlayerController? _videoController;
 
   @override
   void initState() {
@@ -54,10 +58,42 @@ class _PostDetailPageState extends State<PostDetailPage> {
         });
       }
     });
+
+    // 동영상 초기화
+    if (_post.videoUrl != null && _post.videoUrl!.isNotEmpty) {
+      _initVideoPlayer();
+    }
+  }
+
+  Future<void> _initVideoPlayer() async {
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(_post.videoUrl!));
+      await _videoController!.initialize();
+      _videoController!.setLooping(false);   // 1회만 재생
+      _videoController!.play();
+      _videoController!.setVolume(0);
+      
+      // 재생 완료 시 setState 호출해서 ▶ 아이콘 표시
+      _videoController!.addListener(_onVideoStatusChanged);
+      
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('⚠️ Video player init error: $e');
+    }
+  }
+
+  void _onVideoStatusChanged() {
+    if (_videoController == null) return;
+    // 재생 끝났을 때 UI 갱신 (▶ 아이콘 표시)
+    if (!_videoController!.value.isPlaying && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _videoController?.removeListener(_onVideoStatusChanged);
+    _videoController?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -122,7 +158,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_post.imageUrls.isNotEmpty) _buildImageSlider(),
+                    if (_post.videoUrl != null || _post.imageUrls.isNotEmpty)
+                      _buildMediaSlider(),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       child: Column(
@@ -634,6 +671,252 @@ class _PostDetailPageState extends State<PostDetailPage> {
     );
   }
 
+  Widget _buildMediaSlider() {
+    final hasVideo = _post.videoUrl != null && _post.videoUrl!.isNotEmpty;
+    final totalCount = (hasVideo ? 1 : 0) + _post.imageUrls.length;
+
+    if (totalCount == 0) return const SizedBox.shrink();
+
+    // 동영상만 있고 이미지 없는 경우
+    if (hasVideo && _post.imageUrls.isEmpty) {
+      return _buildVideoWidget();
+    }
+
+    // 이미지만 있는 경우 (기존 로직)
+    if (!hasVideo) {
+      return _buildImageSlider();
+    }
+
+    // 동영상 + 이미지 혼합
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.width,
+          child: PageView.builder(
+            itemCount: totalCount,
+            onPageChanged: (index) {
+              setState(() => _currentImageIndex = index);
+              if (hasVideo) {
+                if (index == 0) {
+                  // 동영상 끝났으면 처음부터 재생
+                  if (_videoController!.value.position >= _videoController!.value.duration) {
+                    _videoController!.seekTo(Duration.zero);
+                  }
+                  _videoController!.play();
+                } else {
+                  _videoController?.pause();
+                }
+              }
+            },
+            itemBuilder: (context, index) {
+              // 첫 번째 페이지 = 동영상
+              if (index == 0 && hasVideo) {
+                return _buildVideoWidget();
+              }
+              // 나머지 = 이미지 (인덱스 보정)
+              final imageIndex = hasVideo ? index - 1 : index;
+              return GestureDetector(
+                onTap: () => Get.to(() => ImageGalleryPage(
+                  imageUrls: _post.imageUrls,
+                  initialIndex: imageIndex,
+                )),
+                child: CachedNetworkImage(
+                  imageUrl: _post.imageUrls[imageIndex],
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: AppColors.sand,
+                    child: const Center(child: PawLoadingIndicator(size: 32)),
+                  ),
+                  errorWidget: (context, url, error) => Image.asset(
+                    'assets/icon/app_icon3.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // 페이지 카운터 (우측 상단)
+        if (totalCount > 1)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                '${_currentImageIndex + 1}/$totalCount',
+                style: const TextStyle(
+                  color: AppColors.deepBrown,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        // 페이지 인디케이터 (하단 점)
+        if (totalCount > 1)
+          Positioned(
+            bottom: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                totalCount,
+                (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? AppColors.white
+                        : AppColors.white.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildVideoWidget() {
+    // 아직 초기화 안 됐으면 썸네일 + 로딩
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      return GestureDetector(
+        onTap: () => _openFullScreenVideo(),
+        child: Container(
+          height: MediaQuery.of(context).size.width,
+          color: Colors.black,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (_post.videoThumbnailUrl != null)
+                CachedNetworkImage(
+                  imageUrl: _post.videoThumbnailUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final size = MediaQuery.of(context).size.width;
+
+    return GestureDetector(
+      onTap: () {
+        if (_videoController!.value.position >= _videoController!.value.duration && 
+            !_videoController!.value.isPlaying) {
+          // 재생 끝난 상태에서 탭 → 처음부터 다시 재생
+          _videoController!.seekTo(Duration.zero);
+          _videoController!.play();
+        } else {
+          // 재생 중이거나 일시정지 중 → 전체화면
+          _openFullScreenVideo();
+        }
+      },
+      child: Container(
+        height: size,
+        width: size,
+        color: Colors.black,
+        child: Stack(
+          children: [
+            // 동영상 (정사각형 크롭)
+            Positioned.fill(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: _videoController!.value.size.width,
+                  height: _videoController!.value.size.height,
+                  child: VideoPlayer(_videoController!),
+                ),
+              ),
+            ),
+            // 가운데 재생/일시정지 아이콘
+            Positioned.fill(
+              child: Center(
+                child: ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: _videoController!,
+                  builder: (context, value, child) {
+                    if (!value.isPlaying) {
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+            // 하단 흰색 progress bar
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ValueListenableBuilder<VideoPlayerValue>(
+                valueListenable: _videoController!,
+                builder: (context, value, child) {
+                  final duration = value.duration.inMilliseconds;
+                  final position = value.position.inMilliseconds;
+                  final progress = duration > 0 ? position / duration : 0.0;
+                  
+                  return Container(
+                    height: 3,
+                    color: Colors.white.withOpacity(0.3),
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: progress.clamp(0.0, 1.0),
+                      child: Container(
+                        height: 3,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullScreenVideo() async {
+    _videoController?.pause();
+    
+    await Get.to(() => _FullScreenVideoPage(videoUrl: _post.videoUrl!));
+    
+    // 전체화면에서 돌아오면 슬라이더 동영상 다시 재생 (음소거)
+    if (_currentImageIndex == 0 && _videoController != null) {
+      _videoController!.setVolume(0);
+      _videoController!.play();
+    }
+  }
+
   Widget _buildImageSlider() {
     return Stack(
       alignment: Alignment.bottomCenter,
@@ -1076,6 +1359,88 @@ class _IncidentLocationsSectionState extends State<IncidentLocationsSection> {
       ),
       child: Center(
         child: Text('$index', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+class _FullScreenVideoPage extends StatefulWidget {
+  final String videoUrl;
+  const _FullScreenVideoPage({required this.videoUrl});
+
+  @override
+  State<_FullScreenVideoPage> createState() => _FullScreenVideoPageState();
+}
+
+class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
+  late VideoPlayerController _controller;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        _chewieController = ChewieController(
+          videoPlayerController: _controller,
+          autoPlay: true,
+          looping: false,
+          showControls: true,
+          showOptions: false,
+          allowPlaybackSpeedChanging: false,
+          hideControlsTimer: const Duration(seconds: 3),
+          customControls: const MaterialControls(),
+          aspectRatio: _controller.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: Colors.white,
+            handleColor: Colors.white,
+            backgroundColor: Colors.white24,
+            bufferedColor: Colors.white38,
+          ),
+          errorBuilder: (context, errorMessage) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, color: Colors.white, size: 42),
+                  SizedBox(height: 8),
+                  Text('동영상을 불러올 수 없습니다',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            );
+          },
+        );
+        if (mounted) setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          onPressed: () => Get.back(),
+        ),
+      ),
+      body: Center(
+        child: _chewieController != null
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: Chewie(controller: _chewieController!),
+              )
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

@@ -76,6 +76,8 @@ class CommunityPost {
   final String? chatRoomImageUrl;
   final String? hostUid;       // 단장 uid
   final String joinType;       // 'free' 또는 'approval'
+  final String? videoUrl;        // 동영상 URL
+  final String? videoThumbnailUrl; // 동영상 썸네일 URL
 
   CommunityPost({
     required this.id,
@@ -116,6 +118,8 @@ class CommunityPost {
     this.chatRoomImageUrl,
     this.hostUid,
     this.joinType = 'free',
+    this.videoUrl,
+    this.videoThumbnailUrl,
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json, String id) {
@@ -160,6 +164,8 @@ class CommunityPost {
       chatRoomImageUrl: json['chatRoomImageUrl'],
       hostUid: json['hostUid'],
       joinType: json['joinType'] ?? 'free',
+      videoUrl: json['videoUrl'],
+      videoThumbnailUrl: json['videoThumbnailUrl'],
     );
   }
 
@@ -202,6 +208,8 @@ class CommunityPost {
     String? chatRoomImageUrl,
     String? hostUid,
     String? joinType,
+    String? videoUrl,
+    String? videoThumbnailUrl,
   }) {
     return CommunityPost(
       id: id ?? this.id,
@@ -242,6 +250,8 @@ class CommunityPost {
       chatRoomImageUrl: chatRoomImageUrl ?? this.chatRoomImageUrl,
       hostUid: hostUid ?? this.hostUid,
       joinType: joinType ?? this.joinType,
+      videoUrl: videoUrl ?? this.videoUrl,
+      videoThumbnailUrl: videoThumbnailUrl ?? this.videoThumbnailUrl,
     );
   }
 
@@ -303,6 +313,8 @@ class CommunityPost {
       if (chatRoomImageUrl != null) 'chatRoomImageUrl': chatRoomImageUrl,
       if (hostUid != null) 'hostUid': hostUid,
       'joinType': joinType,
+      if (videoUrl != null) 'videoUrl': videoUrl,
+      if (videoThumbnailUrl != null) 'videoThumbnailUrl': videoThumbnailUrl,
     };
   }
 }

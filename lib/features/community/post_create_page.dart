@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:video_compress/video_compress.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/paw_loading_indicator.dart';
 import 'post_create_controller.dart';
@@ -384,9 +385,160 @@ class _PostCreatePageState extends State<PostCreatePage> {
               ),
               const SizedBox(height: 24),
 
+              // ── 동영상 (선택, 최대 1개 · 30초) ──
+              const Text('동영상 (선택, 최대 30초)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha)),
+              const SizedBox(height: 12),
+              Obx(() {
+                final video = controller.selectedVideo.value;
+
+                if (video == null) {
+                  return GestureDetector(
+                    onTap: controller.pickVideo,
+                    child: Container(
+                      width: double.infinity,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: AppColors.sand.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.sand),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.videocam_outlined, color: AppColors.taupe, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            '동영상 추가하기',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.taupe),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                // 동영상이 선택된 상태 — 썸네일 + 파일명 + 삭제 버튼
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.sand.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.sand),
+                  ),
+                  child: Row(
+                    children: [
+                      // 썸네일
+                      FutureBuilder<File>(
+                        future: VideoCompress.getFileThumbnail(
+                          video.path,
+                          quality: 50,
+                          position: -1,
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: AppColors.sand,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.taupe),
+                                ),
+                              ),
+                            );
+                          }
+                          if (snapshot.hasData) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Stack(
+                                children: [
+                                  Image.file(
+                                    snapshot.data!,
+                                    width: 64,
+                                    height: 64,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 20),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          // 에러 시 아이콘 표시
+                          return Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppColors.sand,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.videocam, color: AppColors.taupe),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      // 파일 정보
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              controller.selectedVideoName.value,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.deepBrown,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            FutureBuilder<int>(
+                              future: video.length(),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) return const SizedBox.shrink();
+                                final mb = snapshot.data! / 1024 / 1024;
+                                return Text(
+                                  '${mb.toStringAsFixed(1)}MB · 업로드 시 자동 압축',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.taupe),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 삭제 버튼
+                      IconButton(
+                        onPressed: controller.removeVideo,
+                        icon: const Icon(Icons.close, color: AppColors.taupe, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 24),
+
               // Image Picker Button & List
               const Text('사진 (최대 5장)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha)),
               const SizedBox(height: 12),
+
               Row(
                 children: [
                   Obx(() {
