@@ -7,6 +7,8 @@ class ChatMessage {
   final String message;
   final String? imageUrl;
   final List<String> imageUrls;
+  final String? videoUrl;
+  final String? videoThumbnailUrl;
   final String type;
   final DateTime createdAt;
   final List<String> readBy;
@@ -18,6 +20,8 @@ class ChatMessage {
     required this.message,
     this.imageUrl,
     this.imageUrls = const [],
+    this.videoUrl,
+    this.videoThumbnailUrl,
     this.type = 'normal',
     required this.createdAt,
     this.readBy = const [],
@@ -31,6 +35,8 @@ class ChatMessage {
       message: json['message'] ?? '',
       imageUrl: json['imageUrl'],
       imageUrls: List<String>.from(json['imageUrls'] ?? []),
+      videoUrl: json['videoUrl'],
+      videoThumbnailUrl: json['videoThumbnailUrl'],
       type: json['type'] ?? 'normal',
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readBy: List<String>.from(json['readBy'] ?? []),
@@ -44,6 +50,8 @@ class ChatMessage {
       'message': message,
       if (imageUrl != null) 'imageUrl': imageUrl,
       if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
+      if (videoUrl != null) 'videoUrl': videoUrl,
+      if (videoThumbnailUrl != null) 'videoThumbnailUrl': videoThumbnailUrl,
       'type': type,
       'createdAt': Timestamp.now(),
       'readBy': readBy,

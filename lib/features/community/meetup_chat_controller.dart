@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:video_compress/video_compress.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../data/repositories/meetup_chat_repository.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -282,6 +283,59 @@ class MeetupChatController extends GetxController {
       debugPrint('⚠️ Error resending message: $e');
       Get.snackbar('잠깐!', '메시지 전송에 실패했어요 🐾');
     } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> pickAndSendVideo(ImageSource source) async {
+    if (_currentUid == null) return;
+    try {
+      final pickedFile = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: 30),
+      );
+      if (pickedFile == null) return;
+
+      final file = File(pickedFile.path);
+
+      // 길이 검증
+      final mediaInfo = await VideoCompress.getMediaInfo(file.path);
+      final durationSec = (mediaInfo.duration ?? 0) / 1000;
+      if (durationSec > 30) {
+        CustomCenterToast.show('동영상은 최대 30초까지 전송할 수 있습니다.');
+        return;
+      }
+
+      isSubmitting.value = true;
+
+      // 업로드 (압축 + 썸네일은 repository에서 처리)
+      final result = await _chatRepository.uploadVideo(postId, _currentUid!, file);
+
+      final msgId = _chatRepository.getNewMessageId(postId);
+      final message = ChatMessage(
+        id: msgId,
+        senderUid: _currentUid!,
+        senderNickname: _currentNickname ?? '알 수 없음',
+        message: '동영상을 보냈습니다.',
+        videoUrl: result['videoUrl'],
+        videoThumbnailUrl: result['thumbnailUrl'],
+        createdAt: DateTime.now(),
+        readBy: [_currentUid!],
+      );
+
+      try {
+        await _chatRepository.sendMessage(postId, message);
+        _notifyChatParticipants('동영상을 보냈습니다.');
+      } catch (e) {
+        debugPrint('⚠️ Error sending video message: $e');
+        failedMessages.insert(0, message);
+        Get.snackbar('잠깐!', '동영상 전송에 실패했어요 🐾');
+      }
+
+      isSubmitting.value = false;
+    } catch (e) {
+      debugPrint('⚠️ Error picking/uploading video: $e');
+      Get.snackbar('잠깐!', '동영상을 불러오는 중 문제가 발생했어요 🐾');
       isSubmitting.value = false;
     }
   }

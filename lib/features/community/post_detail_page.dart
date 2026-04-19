@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:chewie/src/material/material_controls.dart';
+import '../../widgets/simple_video_controls.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -1389,7 +1389,7 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
           showOptions: false,
           allowPlaybackSpeedChanging: false,
           hideControlsTimer: const Duration(seconds: 3),
-          customControls: const MaterialControls(),
+          customControls: const SimpleVideoControls(),
           aspectRatio: _controller.value.aspectRatio,
           materialProgressColors: ChewieProgressColors(
             playedColor: Colors.white,

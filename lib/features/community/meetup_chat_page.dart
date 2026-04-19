@@ -3,6 +3,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import '../../widgets/simple_video_controls.dart';
 import '../../core/app_colors.dart';
 import '../../domain/entities/chat_message.dart';
 import 'meetup_chat_controller.dart';
@@ -119,6 +122,10 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
 
   void _openImageViewer(List<String> urls, int initialIndex) {
     Get.to(() => ImageGalleryPage(imageUrls: urls, initialIndex: initialIndex));
+  }
+
+  void _openChatVideoPlayer(String videoUrl) {
+    Get.to(() => _ChatFullScreenVideoPage(videoUrl: videoUrl));
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -374,16 +381,16 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
       ],
     );
 
-    // 이미지만 있는 메시지인지 확인
-    final bool isImageOnly = (msg.imageUrls.isNotEmpty || msg.imageUrl != null) &&
-        (msg.message.isEmpty || msg.message == '사진을 보냈습니다.');
+    // 미디어만 있는 메시지인지 확인
+    final bool isMediaOnly = (msg.imageUrls.isNotEmpty || msg.imageUrl != null || msg.videoUrl != null) &&
+        (msg.message.isEmpty || msg.message == '사진을 보냈습니다.' || msg.message == '동영상을 보냈습니다.');
 
     Widget bubbleContent = Container(
-      padding: isImageOnly 
-          ? EdgeInsets.zero  // 이미지만 있으면 패딩 없음
+      padding: isMediaOnly 
+          ? EdgeInsets.zero  // 미디어만 있으면 패딩 없음
           : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: isImageOnly 
-          ? null  // 이미지만 있으면 배경 없음
+      decoration: isMediaOnly 
+          ? null  // 미디어만 있으면 배경 없음
           : BoxDecoration(
               color: isMine ? AppColors.sand : AppColors.white,
               borderRadius: BorderRadius.only(
@@ -403,6 +410,43 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
       child: Column(
         crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+          // 동영상 메시지
+          if (msg.videoUrl != null && msg.videoUrl!.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(bottom: msg.message.isNotEmpty && msg.message != '동영상을 보냈습니다.' ? 8.0 : 0),
+              child: GestureDetector(
+                onTap: () => _openChatVideoPlayer(msg.videoUrl!),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (msg.videoThumbnailUrl != null)
+                          CachedNetworkImage(
+                            imageUrl: msg.videoThumbnailUrl!,
+                            fit: BoxFit.cover,
+                          )
+                        else
+                          Container(color: Colors.black),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           // 여러 장 이미지 그리드
           if (msg.imageUrls.isNotEmpty)
             Padding(
@@ -428,8 +472,10 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
           // 이미지가 있을 때 '사진을 보냈습니다.' 숨기기
           if (msg.message.isNotEmpty && 
               msg.message != '사진을 보냈습니다.' &&
+              msg.message != '동영상을 보냈습니다.' &&
               msg.imageUrl == null && 
-              msg.imageUrls.isEmpty)
+              msg.imageUrls.isEmpty &&
+              msg.videoUrl == null)
             Text(
               msg.message,
               style: TextStyle(
@@ -795,10 +841,18 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('앨범에서 선택'),
+              title: const Text('앨범에서 사진 선택'),
               onTap: () {
                 Navigator.of(ctx).pop();
                 controller.pickAndSendImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('앨범에서 동영상 선택'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                controller.pickAndSendVideo(ImageSource.gallery);
               },
             ),
           ],
@@ -1100,6 +1154,88 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ChatFullScreenVideoPage extends StatefulWidget {
+  final String videoUrl;
+  const _ChatFullScreenVideoPage({required this.videoUrl});
+
+  @override
+  State<_ChatFullScreenVideoPage> createState() => _ChatFullScreenVideoPageState();
+}
+
+class _ChatFullScreenVideoPageState extends State<_ChatFullScreenVideoPage> {
+  late VideoPlayerController _controller;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        _chewieController = ChewieController(
+          videoPlayerController: _controller,
+          autoPlay: true,
+          looping: false,
+          showControls: true,
+          showOptions: false,
+          allowPlaybackSpeedChanging: false,
+          hideControlsTimer: const Duration(seconds: 3),
+          customControls: const SimpleVideoControls(),
+          aspectRatio: _controller.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: Colors.white,
+            handleColor: Colors.white,
+            backgroundColor: Colors.white24,
+            bufferedColor: Colors.white38,
+          ),
+          errorBuilder: (context, errorMessage) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, color: Colors.white, size: 42),
+                  SizedBox(height: 8),
+                  Text('동영상을 불러올 수 없습니다',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            );
+          },
+        );
+        if (mounted) setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          onPressed: () => Get.back(),
+        ),
+      ),
+      body: Center(
+        child: _chewieController != null
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: Chewie(controller: _chewieController!),
+              )
+            : const CircularProgressIndicator(color: Colors.white),
+      ),
     );
   }
 }
