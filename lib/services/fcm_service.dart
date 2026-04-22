@@ -147,4 +147,41 @@ class FcmService {
       'isAccepted': isAccepted,
     });
   }
+
+  // 7. 친구 요청 알림
+  static Future<void> sendFriendRequestNotification({
+    required String toUid,
+    required String fromNickname,
+  }) async {
+    await _call('sendFriendRequestNotification', {
+      'toUid': toUid,
+      'fromNickname': fromNickname,
+    });
+  }
+
+  // 8. 친구 수락 알림
+  static Future<void> sendFriendAcceptedNotification({
+    required String toUid,
+    required String fromNickname,
+  }) async {
+    await _call('sendFriendAcceptedNotification', {
+      'toUid': toUid,
+      'fromNickname': fromNickname,
+    });
+  }
+
+  // 9. 1대1 채팅 알림
+  static Future<void> sendDirectChatNotification({
+    required String toUid,
+    required String senderNickname,
+    required String message,
+    required String currentUid,
+  }) async {
+    if (toUid == currentUid) return;
+    await _call('sendDirectChatNotification', {
+      'toUid': toUid,
+      'senderNickname': senderNickname,
+      'message': message,
+    });
+  }
 }

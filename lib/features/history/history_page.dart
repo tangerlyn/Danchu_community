@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/local_notification_service.dart';
@@ -291,6 +292,7 @@ class HistoryPageState extends State<HistoryPage> {
         backgroundColor: const Color(0xFFF8F5F1),
         elevation: 0,
         toolbarHeight: 64, // Increased to match the SafeArea + 16 vertical offset effect
+
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

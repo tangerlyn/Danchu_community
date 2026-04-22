@@ -8,6 +8,7 @@ import 'package:video_compress/video_compress.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import 'package:pawprint_app/core/app_colors.dart';
+import 'package:intl/intl.dart';
 import '../../core/utils/date_picker_utils.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -19,6 +20,7 @@ import 'post_detail_page.dart';
 import 'location_pick_page.dart';
 import 'community_controller.dart';
 import 'mixins/pet_report_mixin.dart';
+import '../../features/history/walk_model.dart';
 
 class PostCreateController extends GetxController with PetReportMixin {
   final CommunityRepositoryImpl _communityRepository = CommunityRepositoryImpl();
@@ -54,6 +56,21 @@ class PostCreateController extends GetxController with PetReportMixin {
   
   List<Map<String, double>>? _passedRoutePoints;
   String? _passedWalkSummary;
+
+  // 산책 첨부
+  Walk? attachedWalk;
+  List<Map<String, double>>? get attachedRoutePoints => attachedWalk?.decodedRoutePoints
+      .map((p) => {'lat': p[0], 'lng': p[1]})
+      .toList();
+  String? get attachedWalkSummary {
+    if (attachedWalk == null) return null;
+    final w = attachedWalk!;
+    final distanceKm = w.distanceMeters / 1000;
+    final distStr = distanceKm < 1 ? '${distanceKm.toStringAsFixed(1)}km' : '${distanceKm.toStringAsFixed(2)}km';
+    final minutes = w.durationSeconds ~/ 60;
+    final dateStr = DateFormat('yyyy년 M월 d일', 'ko').format(w.startTime);
+    return '$dateStr · $distStr · ${minutes}분';
+  }
 
   UserProfile? _currentUserProfile;
 
@@ -415,8 +432,8 @@ class PostCreateController extends GetxController with PetReportMixin {
         meetingPlace: selectedMainCategory.value == '모임' ? selectedMeetingPlace.value : null,
         meetingLat: selectedMainCategory.value == '모임' ? selectedMeetingLat.value : null,
         meetingLng: selectedMainCategory.value == '모임' ? selectedMeetingLng.value : null,
-        routePoints: _passedRoutePoints,
-        walkSummary: _passedWalkSummary,
+        routePoints: attachedRoutePoints ?? _passedRoutePoints,
+        walkSummary: attachedWalkSummary ?? _passedWalkSummary,
         joinType: selectedMainCategory.value == '모임' ? selectedJoinType.value : 'free',
         hostUid: selectedMainCategory.value == '모임' ? uid : null,
       );

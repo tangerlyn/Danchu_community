@@ -133,7 +133,7 @@ class LocalNotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime, // ← 매년 반복
+      matchDateTimeComponents: DateTimeComponents.dateAndTime, // ← 매년 같은 월+일 반복
     );
     debugPrint('🎂 [LocalNotificationService] Birthday notification scheduled for $dogName on $birthMonth/$birthDay');
   }

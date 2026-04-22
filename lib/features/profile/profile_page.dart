@@ -3,7 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pawprint_app/core/app_colors.dart';
 import 'package:get/get.dart';
 import '../../data/models/user_profile.dart';
-import '../../domain/repositories/friend_repository.dart';
+import '../friends/friends_page.dart';
+import '../friends/friends_controller.dart';
 import 'profile_controller.dart';
 import 'my_mung_card_page.dart';
 import '../auth/auth_controller.dart';
@@ -108,6 +109,11 @@ class ProfilePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildMungCardEntry(controller),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildFriendEntry(),
             ),
             const SizedBox(height: 24),
             Padding(
@@ -330,6 +336,58 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  Widget _buildFriendEntry() {
+    return GestureDetector(
+      onTap: () {
+        Get.to(() => const FriendsPage());
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.sand, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.mocha.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.sand.withOpacity(0.4),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.people_outline,
+                  color: AppColors.deepBrown, size: 24),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Text(
+                '친구',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.deepBrown,
+                ),
+              ),
+            ),
+            // 받은 친구 요청 뱃지
+            _FriendRequestBadge(),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right,
+                color: AppColors.taupe, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomMenu(BuildContext context, ProfileController controller) {
     return Container(
       decoration: BoxDecoration(
@@ -443,5 +501,42 @@ class ProfilePage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 받은 친구 요청 수를 실시간으로 보여주는 뱃지
+class _FriendRequestBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    // FriendsController가 등록되어 있으면 뱃지 표시
+    if (!Get.isRegistered<FriendsController>()) {
+      // 미리 등록해두기 (백그라운드로 스트림 시작)
+      Get.put(FriendsController());
+    }
+
+    return Obx(() {
+      if (!Get.isRegistered<FriendsController>()) {
+        return const SizedBox.shrink();
+      }
+      final count =
+          Get.find<FriendsController>().unreadRequestCount;
+      if (count == 0) return const SizedBox.shrink();
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '$count',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    });
   }
 }

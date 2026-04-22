@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
@@ -16,7 +17,8 @@ import 'chat_user_profile_page.dart';
 import '../../widgets/paw_loading_indicator.dart';
 import '../../widgets/image_gallery_page.dart';
 import 'join_request_list_page.dart';
-
+import '../../widgets/walk_picker_sheet.dart';
+import '../../widgets/walk_map_widgets.dart';
 class MeetupChatPage extends StatefulWidget {
   final String postId;
   final String postTitle;
@@ -235,11 +237,12 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
                   ...controller.messages,
                   ...controller.failedMessages,
                 ];
+                final uploadingMsgs = controller.uploadingMessages;
                 if (controller.isLoadingMessages.value) {
                   return const Center(child: PawLoadingIndicator());
                 }
 
-                if (msgs.isEmpty) {
+                if (msgs.isEmpty && uploadingMsgs.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -256,16 +259,24 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
                   );
                 }
 
+                // 기존 메시지 + 업로딩 메시지를 하나의 리스트로 합침
+                final totalCount = msgs.length + uploadingMsgs.length;
+
                 return ListView.builder(
                   controller: controller.scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: msgs.length,
+                  itemCount: totalCount,
                   itemBuilder: (context, index) {
+                    // 업로딩 메시지는 맨 아래에 표시
+                    if (index >= msgs.length) {
+                      final uploadingIndex = index - msgs.length;
+                      return _buildUploadingBubble(uploadingMsgs[uploadingIndex]);
+                    }
+
                     final msg = msgs[index];
                     final isMine = msg.senderUid == controller.currentUid;
                     final isFailed = controller.failedMessages.contains(msg);
-                    
-                    // Check if we need a date separator
+
                     bool showDateSeparator = false;
                     if (index == 0) {
                       showDateSeparator = true;
@@ -276,7 +287,6 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
                       }
                     }
 
-                    // Check if same sender as previous message
                     bool showProfileAndName = true;
                     if (index > 0 && !showDateSeparator) {
                       final prevMsg = msgs[index - 1];
@@ -334,6 +344,128 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
     );
   }
 
+  Widget _buildUploadingBubble(dynamic msg) {
+    Widget mediaWidget;
+
+    if (msg.isVideo) {
+      // 동영상 업로드 중
+      mediaWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 200,
+          height: 200,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (msg.localThumbnailPath != null)
+                Image.file(
+                  File(msg.localThumbnailPath!),
+                  fit: BoxFit.cover,
+                )
+              else
+                Container(color: Colors.black54),
+              Container(
+                color: Colors.black.withOpacity(0.3),
+              ),
+              const Center(
+                child: SizedBox(
+                  width: 32, height: 32,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (msg.localImagePaths.isNotEmpty) {
+      // 여러 장 이미지 업로드 중
+      final paths = msg.localImagePaths;
+      mediaWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            Image.file(
+              File(paths[0]),
+              width: paths.length == 1 ? 180 : 113,
+              height: 75,
+              fit: BoxFit.cover,
+            ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: SizedBox(
+                    width: 24, height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (msg.localImagePath != null) {
+      // 단일 이미지 업로드 중
+      mediaWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            Image.file(
+              File(msg.localImagePath!),
+              width: 180,
+              fit: BoxFit.cover,
+            ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: SizedBox(
+                    width: 24, height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // 업로드 중 표시
+          Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                '전송 중...',
+                style: TextStyle(fontSize: 10, color: AppColors.taupe),
+              ),
+            ],
+          ),
+          const SizedBox(width: 6),
+          mediaWidget,
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageBubble({
     required ChatMessage msg,
     required bool isMine,
@@ -385,31 +517,35 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
     final bool isMediaOnly = (msg.imageUrls.isNotEmpty || msg.imageUrl != null || msg.videoUrl != null) &&
         (msg.message.isEmpty || msg.message == '사진을 보냈습니다.' || msg.message == '동영상을 보냈습니다.');
 
-    Widget bubbleContent = Container(
-      padding: isMediaOnly 
-          ? EdgeInsets.zero  // 미디어만 있으면 패딩 없음
-          : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: isMediaOnly 
-          ? null  // 미디어만 있으면 배경 없음
-          : BoxDecoration(
-              color: isMine ? AppColors.sand : AppColors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isMine ? 16 : 4),
-                bottomRight: Radius.circular(isMine ? 4 : 16),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+    Widget bubbleContent;
+    if (msg.type == 'walk') {
+      bubbleContent = _buildWalkBubble(msg, isMine);
+    } else {
+      bubbleContent = Container(
+        padding: isMediaOnly 
+            ? EdgeInsets.zero  // 미디어만 있으면 패딩 없음
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: isMediaOnly 
+            ? null  // 미디어만 있으면 배경 없음
+            : BoxDecoration(
+                color: isMine ? AppColors.sand : AppColors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isMine ? 16 : 4),
+                  bottomRight: Radius.circular(isMine ? 4 : 16),
                 ),
-              ],
-            ),
-      child: Column(
-        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+        child: Column(
+          crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
           // 동영상 메시지
           if (msg.videoUrl != null && msg.videoUrl!.isNotEmpty)
             Padding(
@@ -487,6 +623,7 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
         ],
       ),
     );
+    }
 
     return Padding(
       padding: EdgeInsets.only(
@@ -527,12 +664,15 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
                 if (!isMine && showProfileAndName)
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 4),
-                    child: Text(
-                      msg.senderNickname,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.mocha,
+                    child: GestureDetector(
+                      onTap: () => Get.to(() => ChatUserProfilePage(uid: msg.senderUid)),
+                      child: Text(
+                        msg.senderNickname,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.mocha,
+                        ),
                       ),
                     ),
                   ),
@@ -855,6 +995,22 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
                 controller.pickAndSendVideo(ImageSource.gallery);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.directions_walk),
+              title: const Text('산책 기록 공유'),
+              onTap: () async {
+                Navigator.of(ctx).pop();
+                final selectedWalk = await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const WalkPickerSheet(),
+                );
+                if (selectedWalk != null) {
+                  controller.sendWalkRecord(selectedWalk);
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -1154,6 +1310,55 @@ class _MeetupChatPageState extends State<MeetupChatPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildWalkBubble(ChatMessage msg, bool isMine) {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(isMine ? 16 : 4),
+          bottomRight: Radius.circular(isMine ? 4 : 16),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(isMine ? 16 : 4),
+          bottomRight: Radius.circular(isMine ? 4 : 16),
+        ),
+        child: Stack(
+          children: [
+            WalkMapThumbnail(msg: msg),
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  debugPrint('🗺️ overlay tap: routePoints=${msg.walkRoutePoints?.length}');
+                  final points = msg.walkRoutePoints;
+                  if (points != null && points.isNotEmpty) {
+                    Get.to(() => WalkRouteViewPage(msg: msg));
+                  } else {
+                    Get.snackbar('알림', '루트 데이터가 없습니다.');
+                  }
+                },
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

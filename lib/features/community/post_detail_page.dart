@@ -18,6 +18,7 @@ import 'widgets/comment_item.dart';
 import '../../core/utils/paw_marker_utils.dart';
 import 'widgets/post_action_sheets.dart';
 import 'meetup_chat_page.dart';
+import 'chat_user_profile_page.dart';
 import '../../widgets/paw_loading_indicator.dart';
 import '../../widgets/image_gallery_page.dart';
 
@@ -208,32 +209,46 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           // Author Info Row
                           Row(
                             children: [
-                              CircleAvatar(
-                                radius: 14,
-                                backgroundColor: AppColors.sand,
-                                child: ClipOval(
-                                  child: (_post.authorProfileImageUrl != null && _post.authorProfileImageUrl!.isNotEmpty)
-                                      ? CachedNetworkImage(
-                                          imageUrl: _post.authorProfileImageUrl!,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                          errorWidget: (context, url, error) => Image.asset(
+                              GestureDetector(
+                                onTap: () {
+                                  if (_post.authorUid.isNotEmpty) {
+                                    Get.to(() => ChatUserProfilePage(uid: _post.authorUid));
+                                  }
+                                },
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: AppColors.sand,
+                                  child: ClipOval(
+                                    child: (_post.authorProfileImageUrl != null && _post.authorProfileImageUrl!.isNotEmpty)
+                                        ? CachedNetworkImage(
+                                            imageUrl: _post.authorProfileImageUrl!,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            errorWidget: (context, url, error) => Image.asset(
+                                              'assets/icon/app_icon3.png',
+                                              fit: BoxFit.cover,
+                                            ),
+                                          )
+                                        : Image.asset(
                                             'assets/icon/app_icon3.png',
                                             fit: BoxFit.cover,
                                           ),
-                                        )
-                                      : Image.asset(
-                                          'assets/icon/app_icon3.png',
-                                          fit: BoxFit.cover,
-                                        ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Obx(() => Text(
-                                '${_post.authorNickname}${controller.isDeletedAuthor.value ? ' (X)' : ''}',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha),
-                              )),
+                              GestureDetector(
+                                onTap: () {
+                                  if (_post.authorUid.isNotEmpty) {
+                                    Get.to(() => ChatUserProfilePage(uid: _post.authorUid));
+                                  }
+                                },
+                                child: Obx(() => Text(
+                                  '${_post.authorNickname}${controller.isDeletedAuthor.value ? ' (X)' : ''}',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha),
+                                )),
+                              ),
                               const SizedBox(width: 8),
                               const Text('·', style: TextStyle(color: AppColors.taupe)),
                               const SizedBox(width: 8),

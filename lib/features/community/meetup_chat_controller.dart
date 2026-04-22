@@ -15,6 +15,8 @@ import '../../core/app_colors.dart';
 import '../../services/fcm_service.dart';
 import '../../data/repositories/community_repository_impl.dart';
 import 'community_controller.dart';
+import 'package:intl/intl.dart';
+import '../history/walk_model.dart';
 
 class MeetupChatController extends GetxController {
   final MeetupChatRepository _chatRepository = MeetupChatRepository();
@@ -38,6 +40,9 @@ class MeetupChatController extends GetxController {
   final messageText = ''.obs;
   final isSubmitting = false.obs;
   final scrollController = ScrollController();
+  
+  // 업로드 중인 임시 메시지 (로컬 파일 경로 기반)
+  final uploadingMessages = <_UploadingMessage>[].obs;
   final isChatMuted = false.obs;
   final chatRoomName = ''.obs;
   final chatRoomImageUrl = ''.obs;
@@ -287,6 +292,42 @@ class MeetupChatController extends GetxController {
     }
   }
 
+  Future<void> sendWalkRecord(Walk walk) async {
+    if (_currentUid == null) return;
+    
+    isSubmitting.value = true;
+    final msgId = _chatRepository.getNewMessageId(postId);
+    final String dateStr = DateFormat('yyyy년 M월 d일', 'ko_KR').format(walk.startTime);
+    final String? dogsStr = walk.dogNameList.isNotEmpty ? walk.dogNameList.join(', ') : null;
+
+    final routePoints = walk.decodedRoutePoints.map((p) => {'lat': p[0], 'lng': p[1]}).toList();
+    debugPrint('🗺️ sendWalkRecord: ${routePoints.length} points');
+
+    final message = ChatMessage(
+      id: msgId,
+      senderUid: _currentUid!,
+      senderNickname: _currentNickname ?? '알 수 없음',
+      message: '산책 기록을 공유했습니다.',
+      type: 'walk',
+      walkRoutePoints: routePoints,
+      walkDate: dateStr,
+      walkDogNames: dogsStr,
+      createdAt: DateTime.now(),
+      readBy: [_currentUid!],
+    );
+
+    try {
+      await _chatRepository.sendMessage(postId, message);
+      _notifyChatParticipants('산책 기록을 공유했습니다.');
+    } catch (e) {
+      debugPrint('⚠️ Error sending walk message: $e');
+      failedMessages.insert(0, message);
+      Get.snackbar('잠깐!', '산책 기록 공유에 실패했어요 🐾');
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
   Future<void> pickAndSendVideo(ImageSource source) async {
     if (_currentUid == null) return;
     try {
@@ -308,8 +349,31 @@ class MeetupChatController extends GetxController {
 
       isSubmitting.value = true;
 
+      // 썸네일 먼저 생성 (미리보기용)
+      String? localThumbPath;
+      try {
+        final thumbFile = await VideoCompress.getFileThumbnail(
+          file.path, quality: 50, position: -1,
+        );
+        localThumbPath = thumbFile.path;
+      } catch (_) {}
+
+      // 임시 메시지 즉시 표시
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final tempMsg = _UploadingMessage(
+        id: tempId,
+        localVideoPath: file.path,
+        localThumbnailPath: localThumbPath,
+        createdAt: DateTime.now(),
+        isVideo: true,
+      );
+      uploadingMessages.add(tempMsg);
+
       // 업로드 (압축 + 썸네일은 repository에서 처리)
       final result = await _chatRepository.uploadVideo(postId, _currentUid!, file);
+
+      // 업로드 완료 → 임시 메시지 제거
+      uploadingMessages.removeWhere((m) => m.id == tempId);
 
       final msgId = _chatRepository.getNewMessageId(postId);
       final message = ChatMessage(
@@ -334,6 +398,8 @@ class MeetupChatController extends GetxController {
 
       isSubmitting.value = false;
     } catch (e) {
+      // 실패 시 임시 메시지 제거
+      uploadingMessages.clear();
       debugPrint('⚠️ Error picking/uploading video: $e');
       Get.snackbar('잠깐!', '동영상을 불러오는 중 문제가 발생했어요 🐾');
       isSubmitting.value = false;
@@ -386,12 +452,24 @@ class MeetupChatController extends GetxController {
   }
 
   Future<void> _processAndSendSingleImage(File file) async {
+    // 1. 임시 메시지 즉시 표시
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final tempMsg = _UploadingMessage(
+      id: tempId,
+      localImagePath: file.path,
+      createdAt: DateTime.now(),
+    );
+    uploadingMessages.add(tempMsg);
+
     try {
       final imageUrl = await _chatRepository.uploadImage(
         postId,
         _currentUid!,
         file,
       );
+
+      // 2. 업로드 완료 → 임시 메시지 제거
+      uploadingMessages.removeWhere((m) => m.id == tempId);
 
       final msgId = _chatRepository.getNewMessageId(postId);
       final message = ChatMessage(
@@ -406,8 +484,6 @@ class MeetupChatController extends GetxController {
 
       try {
         await _chatRepository.sendMessage(postId, message);
-
-        // Notify Chat Participants
         _notifyChatParticipants('사진을 보냈습니다.');
       } catch (e) {
         debugPrint('⚠️ Error sending image message: $e');
@@ -415,12 +491,23 @@ class MeetupChatController extends GetxController {
         Get.snackbar('잠깐!', '사진 전송에 실패했어요 🐾');
       }
     } catch (e) {
+      // 업로드 실패 → 임시 메시지 제거
+      uploadingMessages.removeWhere((m) => m.id == tempId);
       debugPrint('⚠️ Error uploading image: $e');
       Get.snackbar('잠깐!', '사진 업로드에 실패했어요 🐾');
     }
   }
 
   Future<void> _processAndSendMultipleImages(List<File> files) async {
+    // 1. 임시 메시지 즉시 표시
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final tempMsg = _UploadingMessage(
+      id: tempId,
+      localImagePaths: files.map((f) => f.path).toList(),
+      createdAt: DateTime.now(),
+    );
+    uploadingMessages.add(tempMsg);
+
     try {
       final List<String> uploadedUrls = [];
       for (final file in files) {
@@ -431,6 +518,9 @@ class MeetupChatController extends GetxController {
         );
         uploadedUrls.add(imageUrl);
       }
+
+      // 2. 업로드 완료 → 임시 메시지 제거
+      uploadingMessages.removeWhere((m) => m.id == tempId);
 
       final msgId = _chatRepository.getNewMessageId(postId);
       final message = ChatMessage(
@@ -452,6 +542,7 @@ class MeetupChatController extends GetxController {
         Get.snackbar('잠깐!', '사진 전송에 실패했어요 🐾');
       }
     } catch (e) {
+      uploadingMessages.removeWhere((m) => m.id == tempId);
       debugPrint('⚠️ Error uploading multi-images: $e');
       Get.snackbar('잠깐!', '사진 업로드에 실패했어요 🐾');
     }
@@ -715,4 +806,25 @@ class MeetupChatController extends GetxController {
       debugPrint('⚠️ Chat notification trigger failed: $e');
     }
   }
+}
+
+/// 업로드 중인 임시 메시지 모델
+class _UploadingMessage {
+  final String id;           // 임시 ID
+  final String? localImagePath;   // 로컬 이미지 경로 (단일)
+  final List<String> localImagePaths; // 로컬 이미지 경로 (복수)
+  final String? localVideoPath;   // 로컬 동영상 경로
+  final String? localThumbnailPath; // 로컬 썸네일 경로
+  final DateTime createdAt;
+  final bool isVideo;
+
+  _UploadingMessage({
+    required this.id,
+    this.localImagePath,
+    this.localImagePaths = const [],
+    this.localVideoPath,
+    this.localThumbnailPath,
+    required this.createdAt,
+    this.isVideo = false,
+  });
 }

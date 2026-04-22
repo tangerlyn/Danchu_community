@@ -65,6 +65,36 @@ export const sendChatNotification = functions.https.onCall(async (request) => {
   return { success: true };
 });
 
+// 친구 요청 알림
+export const sendFriendRequestNotification = functions.https.onCall(async (request) => {
+  const { toUid, fromNickname } = request.data;
+  const token = await getToken(toUid);
+  if (!token) return { success: false };
+  return sendMessage(token, '친구 요청', `${fromNickname}님이 친구 요청을 보냈습니다 🐾`, {
+    type: 'friend_request',
+  });
+});
+
+// 친구 수락 알림
+export const sendFriendAcceptedNotification = functions.https.onCall(async (request) => {
+  const { toUid, fromNickname } = request.data;
+  const token = await getToken(toUid);
+  if (!token) return { success: false };
+  return sendMessage(token, '친구 수락', `${fromNickname}님이 친구 요청을 수락했습니다 🎉`, {
+    type: 'friend_accepted',
+  });
+});
+
+// 1대1 채팅 알림
+export const sendDirectChatNotification = functions.https.onCall(async (request) => {
+  const { toUid, senderNickname, message } = request.data;
+  const token = await getToken(toUid);
+  if (!token) return { success: false };
+  return sendMessage(token, senderNickname, message, {
+    type: 'direct_chat',
+  });
+});
+
 // 공통: Firestore에서 FCM 토큰 가져오기
 async function getToken(uid: string): Promise<string | null> {
   const doc = await admin.firestore().collection('users').doc(uid).get();

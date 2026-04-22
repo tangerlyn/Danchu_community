@@ -5,6 +5,7 @@ import '../../../core/app_colors.dart';
 import 'package:get/get.dart';
 import '../post_detail_controller.dart';
 import 'post_action_sheets.dart'; 
+import '../chat_user_profile_page.dart';
 
 class CommentItem extends StatelessWidget {
   final dynamic comment;
@@ -36,24 +37,38 @@ class CommentItem extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: AppColors.sand,
-                  backgroundImage: (comment.authorProfileImageUrl != null && comment.authorProfileImageUrl!.isNotEmpty)
-                      ? CachedNetworkImageProvider(comment.authorProfileImageUrl!)
-                      : null,
-                  child: (comment.authorProfileImageUrl == null || comment.authorProfileImageUrl!.isEmpty)
-                      ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
-                      : null,
+                GestureDetector(
+                  onTap: () {
+                    if (comment.authorUid.isNotEmpty) {
+                      Get.to(() => ChatUserProfilePage(uid: comment.authorUid));
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: AppColors.sand,
+                    backgroundImage: (comment.authorProfileImageUrl != null && comment.authorProfileImageUrl!.isNotEmpty)
+                        ? CachedNetworkImageProvider(comment.authorProfileImageUrl!)
+                        : null,
+                    child: (comment.authorProfileImageUrl == null || comment.authorProfileImageUrl!.isEmpty)
+                        ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Obx(() {
-                  final isDeleted = controller.deletedCommentAuthors.contains(comment.authorUid);
-                  final suffix = isDeleted ? '(X)' : '';
-                  return Text('${comment.authorNickname}$suffix', 
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.mocha, fontSize: 13),
-                  );
-                }),
+                GestureDetector(
+                  onTap: () {
+                    if (comment.authorUid.isNotEmpty) {
+                      Get.to(() => ChatUserProfilePage(uid: comment.authorUid));
+                    }
+                  },
+                  child: Obx(() {
+                    final isDeleted = controller.deletedCommentAuthors.contains(comment.authorUid);
+                    final suffix = isDeleted ? '(X)' : '';
+                    return Text('${comment.authorNickname}$suffix', 
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.mocha, fontSize: 13),
+                    );
+                  }),
+                ),
                 const SizedBox(width: 6),
                 const Text('·', style: TextStyle(color: AppColors.taupe)),
                 const SizedBox(width: 6),
@@ -210,15 +225,22 @@ class _ReplyItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 10,
-              backgroundColor: AppColors.sand,
-              backgroundImage: (reply.authorProfileImageUrl != null && reply.authorProfileImageUrl!.isNotEmpty)
-                  ? CachedNetworkImageProvider(reply.authorProfileImageUrl!)
-                  : null,
-              child: (reply.authorProfileImageUrl == null || reply.authorProfileImageUrl!.isEmpty)
-                  ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
-                  : null,
+            GestureDetector(
+              onTap: () {
+                if (reply.authorUid.isNotEmpty) {
+                  Get.to(() => ChatUserProfilePage(uid: reply.authorUid));
+                }
+              },
+              child: CircleAvatar(
+                radius: 10,
+                backgroundColor: AppColors.sand,
+                backgroundImage: (reply.authorProfileImageUrl != null && reply.authorProfileImageUrl!.isNotEmpty)
+                    ? CachedNetworkImageProvider(reply.authorProfileImageUrl!)
+                    : null,
+                child: (reply.authorProfileImageUrl == null || reply.authorProfileImageUrl!.isEmpty)
+                    ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover, width: double.infinity, height: double.infinity))
+                    : null,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -227,8 +249,15 @@ class _ReplyItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(reply.authorNickname, 
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.mocha, fontSize: 12)
+                      GestureDetector(
+                        onTap: () {
+                          if (reply.authorUid.isNotEmpty) {
+                            Get.to(() => ChatUserProfilePage(uid: reply.authorUid));
+                          }
+                        },
+                        child: Text(reply.authorNickname, 
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.mocha, fontSize: 12),
+                        ),
                       ),
                       const SizedBox(width: 6),
                       const Text('·', style: TextStyle(color: AppColors.taupe)),

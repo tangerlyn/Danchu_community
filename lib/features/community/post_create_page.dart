@@ -8,7 +8,8 @@ import '../../widgets/paw_loading_indicator.dart';
 import 'post_create_controller.dart';
 import 'community_constants.dart';
 import 'widgets/pet_report_form.dart';
-
+import '../../features/history/walk_model.dart';
+import '../../widgets/walk_picker_sheet.dart';
 class PostCreatePage extends StatefulWidget {
   const PostCreatePage({super.key});
 
@@ -19,6 +20,31 @@ class PostCreatePage extends StatefulWidget {
 class _PostCreatePageState extends State<PostCreatePage> {
   final controller = Get.put(PostCreateController());
   bool _showDateTimeFields = false;
+  Walk? _selectedWalk;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // WalkDetailPage에서 넘어온 경우 자동으로 산책 데이터 채우기
+    final args = Get.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      // 카테고리 설정
+      if (args['mainCategory'] != null) {
+        controller.selectedMainCategory.value = args['mainCategory'];
+      }
+      if (args['subCategory'] != null) {
+        controller.selectedSubCategory.value = args['subCategory'];
+      }
+
+      // 산책 기록 자동 첨부
+      if (args['walkData'] != null) {
+        final walkData = args['walkData'] as Walk;
+        setState(() => _selectedWalk = walkData);
+        controller.attachedWalk = walkData;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -534,6 +560,101 @@ class _PostCreatePageState extends State<PostCreatePage> {
                 );
               }),
               const SizedBox(height: 24),
+
+              // ── 산책 기록 첨부 (선택) ──
+              Obx(() {
+                final mainCat = controller.selectedMainCategory.value;
+                // 산책 카테고리가 아닐 때만 선택 가능 (산책 카테고리는 자동 첨부)
+                if (mainCat == '모임') return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('산책 기록 첨부 (선택)',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha)),
+                    const SizedBox(height: 12),
+                    if (_selectedWalk == null)
+                      GestureDetector(
+                        onTap: () async {
+                          final walk = await showModalBottomSheet<Walk>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => const WalkPickerSheet(),
+                          );
+                          if (walk != null) {
+                            setState(() => _selectedWalk = walk);
+                            controller.attachedWalk = walk;
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppColors.sand.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.sand),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.directions_walk_outlined, color: AppColors.taupe, size: 22),
+                              SizedBox(width: 8),
+                              Text('산책 기록 첨부하기',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.taupe)),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.sand.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.sand),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.pets, color: AppColors.deepBrown, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(_selectedWalk!.startTime),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.deepBrown),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    () {
+                                      final w = _selectedWalk!;
+                                      final distKm = w.distanceMeters / 1000;
+                                      final distStr = distKm < 1 ? '${distKm.toStringAsFixed(1)}km' : '${distKm.toStringAsFixed(2)}km';
+                                      final minutes = w.durationSeconds ~/ 60;
+                                      return '$distStr · $minutes분';
+                                    }(),
+                                    style: const TextStyle(fontSize: 12, color: AppColors.taupe),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                setState(() => _selectedWalk = null);
+                                controller.attachedWalk = null;
+                              },
+                              icon: const Icon(Icons.close, color: AppColors.taupe, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }),
 
               // Image Picker Button & List
               const Text('사진 (최대 5장)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.mocha)),

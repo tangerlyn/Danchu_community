@@ -6,6 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import '../../core/utils/paw_marker_utils.dart';
 import '../../features/community/post_create_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../community/meetup_chat_page.dart';
+import '../../data/repositories/friends_repository.dart';
 
 class WalkDetailPage extends StatefulWidget {
   final Walk walk;
@@ -313,29 +317,91 @@ class _WalkDetailPageState extends State<WalkDetailPage> {
   }
 
   void _shareCourse(BuildContext context) {
-    final walk = widget.walk;
-    final dateStr = DateFormat('yyyy년 M월 d일', 'ko').format(walk.startTime);
-    final dogs = walk.dogNameList.isNotEmpty ? walk.dogNameList.join(', ') : '없음';
-    
-    // Custom formatting for share content to match user request: "0.5km · 10분"
-    final distanceKm = walk.distanceMeters / 1000;
-    final distanceStr = distanceKm < 1 ? "${distanceKm.toStringAsFixed(1)}km" : "${distanceKm.toStringAsFixed(2)}km";
-    
-    final minutes = walk.durationSeconds ~/ 60;
-    final durationStr = "${minutes}분";
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: AppColors.sand, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              const Text('산책 기록 공유',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.deepBrown)),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: AppColors.deepBrown),
+                title: const Text('게시글로 쓰기',
+                    style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _shareAsPost();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline, color: AppColors.deepBrown),
+                title: const Text('채팅방으로 공유',
+                    style: TextStyle(color: AppColors.deepBrown, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _shareToChat(context);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-    final walkSummary = "$dateStr · $distanceStr · $durationStr";
-
-    final List<Map<String, double>> routePoints = walk.decodedRoutePoints.map((p) => {
-      'lat': p[0],
-      'lng': p[1],
-    }).toList();
+  void _shareAsPost() {
     Get.to(() => const PostCreatePage(), arguments: {
       'mainCategory': '산책',
       'subCategory': '코스공유',
-      'routePoints': routePoints,
-      'walkSummary': walkSummary,
+      'walkData': widget.walk,
     });
+  }
+
+  void _shareToChat(BuildContext context) async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return;
+
+    // 내가 참가한 모임 채팅방 목록
+    final joinedChatsSnap = await FirebaseFirestore.instance
+        .collection('users').doc(myUid)
+        .collection('joined_chats')
+        .get();
+
+    // 친구 목록
+    final friendsSnap = await FirebaseFirestore.instance
+        .collection('users').doc(myUid)
+        .collection('friends')
+        .get();
+
+    if (!context.mounted) return;
+
+    // 채팅방 + 친구 목록 바텀시트
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ShareToChatSheet(
+        walk: widget.walk,
+        myUid: myUid,
+        joinedChats: joinedChatsSnap.docs,
+        friends: friendsSnap.docs,
+      ),
+    );
   }
 }
 
@@ -369,6 +435,264 @@ class _DetailStat extends StatelessWidget {
           style: TextStyle(fontSize: 12, color: AppColors.taupe),
         ),
       ],
+    );
+  }
+}
+
+class _ShareToChatSheet extends StatefulWidget {
+  final Walk walk;
+  final String myUid;
+  final List<QueryDocumentSnapshot> joinedChats;
+  final List<QueryDocumentSnapshot> friends;
+
+  const _ShareToChatSheet({
+    required this.walk,
+    required this.myUid,
+    required this.joinedChats,
+    required this.friends,
+  });
+
+  @override
+  State<_ShareToChatSheet> createState() => _ShareToChatSheetState();
+}
+
+class _ShareToChatSheetState extends State<_ShareToChatSheet>
+    with SingleTickerProviderStateMixin {
+  bool _isSending = false;
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendToMeetupChat(String postId, String postTitle) async {
+    setState(() => _isSending = true);
+    try {
+      final walk = widget.walk;
+      final routePoints = walk.decodedRoutePoints
+          .map((p) => {'lat': p[0], 'lng': p[1]})
+          .toList();
+      final dateStr = DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(walk.startTime);
+      final dogs = walk.dogNameList.isNotEmpty ? walk.dogNameList.join(', ') : null;
+
+      // 내 닉네임 가져오기
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users').doc(widget.myUid).get();
+      final myNickname = userDoc.data()?['nickname'] ?? '알 수 없음';
+
+      await FirebaseFirestore.instance
+          .collection('community_posts').doc(postId)
+          .collection('chat').add({
+        'senderUid': widget.myUid,
+        'senderNickname': myNickname,
+        'message': '산책 기록을 공유했습니다.',
+        'type': 'walk',
+        'walkRoutePoints': routePoints,
+        'walkDate': dateStr,
+        if (dogs != null) 'walkDogNames': dogs,
+        'imageUrls': [],
+        'readBy': [widget.myUid],
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('⚠️ _sendToMeetupChat error: $e');
+      Get.snackbar('잠깐!', '공유에 실패했어요 🐾');
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _sendToDirectChat(String friendUid, String friendNickname) async {
+    setState(() => _isSending = true);
+    try {
+      final walk = widget.walk;
+      final routePoints = walk.decodedRoutePoints
+          .map((p) => {'lat': p[0], 'lng': p[1]})
+          .toList();
+      final dateStr = DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(walk.startTime);
+      final dogs = walk.dogNameList.isNotEmpty ? walk.dogNameList.join(', ') : null;
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users').doc(widget.myUid).get();
+      final myNickname = userDoc.data()?['nickname'] ?? '알 수 없음';
+
+      final chatId = FriendsRepository.getChatId(widget.myUid, friendUid);
+      final msgRef = FirebaseFirestore.instance
+          .collection('direct_chats').doc(chatId)
+          .collection('messages').doc();
+
+      await msgRef.set({
+        'id': msgRef.id,
+        'senderUid': widget.myUid,
+        'senderNickname': myNickname,
+        'message': '산책 기록을 공유했습니다.',
+        'type': 'walk',
+        'walkRoutePoints': routePoints,
+        'walkDate': dateStr,
+        if (dogs != null) 'walkDogNames': dogs,
+        'imageUrls': [],
+        'readBy': [widget.myUid],
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // direct_chats 문서 lastMessage 업데이트
+      await FirebaseFirestore.instance
+          .collection('direct_chats').doc(chatId)
+          .set({
+        'participants': [widget.myUid, friendUid],
+        'lastMessage': '산책 기록을 공유했습니다.',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('⚠️ _sendToDirectChat error: $e');
+      Get.snackbar('잠깐!', '공유에 실패했어요 🐾');
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(color: AppColors.sand, borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(height: 16),
+          const Text('채팅방 선택',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.deepBrown)),
+          const SizedBox(height: 12),
+
+          // ── 탭 바 ──
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: AppColors.sand.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2)),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: AppColors.deepBrown,
+              unselectedLabelColor: AppColors.taupe,
+              labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              tabs: [
+                Tab(text: '모임  ${widget.joinedChats.length}'),
+                Tab(text: '친구  ${widget.friends.length}'),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── 탭 콘텐츠 ──
+          Expanded(
+            child: _isSending
+                ? const Center(child: CircularProgressIndicator(color: AppColors.deepBrown))
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // 모임 탭
+                      widget.joinedChats.isEmpty
+                          ? const Center(
+                              child: Text('참가 중인 모임이 없습니다.',
+                                  style: TextStyle(color: AppColors.taupe, fontSize: 14)),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                              itemCount: widget.joinedChats.length,
+                              itemBuilder: (context, index) {
+                                final doc = widget.joinedChats[index];
+                                final data = doc.data() as Map<String, dynamic>;
+                                final postId = doc.id;
+                                final title = data['chatRoomName'] ?? data['postTitle'] ?? '모임 채팅';
+                                return ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.sand.withOpacity(0.4),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.people_outline, color: AppColors.deepBrown, size: 20),
+                                  ),
+                                  title: Text(title,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.deepBrown)),
+                                  onTap: () => _sendToMeetupChat(postId, title),
+                                );
+                              },
+                            ),
+
+                      // 친구 탭
+                      widget.friends.isEmpty
+                          ? const Center(
+                              child: Text('친구가 없습니다.',
+                                  style: TextStyle(color: AppColors.taupe, fontSize: 14)),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                              itemCount: widget.friends.length,
+                              itemBuilder: (context, index) {
+                                final doc = widget.friends[index];
+                                final data = doc.data() as Map<String, dynamic>;
+                                final friendUid = doc.id;
+                                final nickname = data['nickname'] ?? '알 수 없음';
+                                final profileImageUrl = data['profileImageUrl'] ?? '';
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: AppColors.sand,
+                                    backgroundImage: profileImageUrl.isNotEmpty
+                                        ? NetworkImage(profileImageUrl)
+                                        : null,
+                                    child: profileImageUrl.isEmpty
+                                        ? ClipOval(child: Image.asset('assets/icon/app_icon3.png', fit: BoxFit.cover))
+                                        : null,
+                                  ),
+                                  title: Text(nickname,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.deepBrown)),
+                                  onTap: () => _sendToDirectChat(friendUid, nickname),
+                                );
+                              },
+                            ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
